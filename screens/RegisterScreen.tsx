@@ -54,7 +54,7 @@ export function RegisterScreen({ navigation }: Props) {
           <Text style={[styles.kicker, { color: t.accent }]}>New</Text>
           <Text style={[styles.title, { color: t.canvasText }]}>Create account</Text>
           <Text style={[styles.lede, { color: t.canvasTextMuted }]}>
-            Choose your role: owners post moves, drivers accept and relocate vehicles.
+            Choose your role: owners post moves, drivers accept and relocate vehicles. You can switch anytime in Profile → Role mode — one account for both.
           </Text>
         </Animated.View>
 

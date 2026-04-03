@@ -1,7 +1,11 @@
-import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import {
+  BottomTabBarHeightCallbackContext,
+  type BottomTabBarProps,
+} from '@react-navigation/bottom-tabs';
 import type { NavigationState, PartialState, Route } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
-import { useEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
+import { useContext, useEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
+import type { LayoutChangeEvent } from 'react-native';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
@@ -224,6 +228,7 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
   const { user } = useAuth();
   const isOwner = user?.role === 'owner';
   const navInteractionLockRef = useRef(false);
+  const onTabBarHeightChange = useContext(BottomTabBarHeightCallbackContext);
 
   const idxAction = routeIndexForName(state, 'Action');
   const actionRoute = idxAction >= 0 ? state.routes[idxAction] : undefined;
@@ -240,7 +245,9 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
 
   const centerLabel = isOwner ? 'Create' : 'Browse';
 
-  const borderColor = theme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(37, 99, 235, 0.14)';
+  /** Hairline pink ring around the floating pill (matches brand accent, very subtle). */
+  const pillBorderColor =
+    theme === 'dark' ? 'rgba(244, 114, 182, 0.42)' : 'rgba(219, 39, 119, 0.34)';
   const tabShadow =
     theme === 'dark'
       ? { shadowColor: '#000' as const, shadowOpacity: 0.4, shadowRadius: 28, shadowOffset: { width: 0, height: 12 } }
@@ -308,7 +315,7 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
       <BlurView
         intensity={88}
         tint={theme === 'dark' ? 'dark' : 'light'}
-        style={[styles.blurInner, { borderColor }]}
+        style={[styles.blurInner, { borderColor: pillBorderColor }]}
       >
         {children}
       </BlurView>
@@ -318,7 +325,7 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
           styles.androidInner,
           {
             backgroundColor: theme === 'dark' ? `${t.bgElevated}F0` : `${t.bgElevated}F5`,
-            borderColor,
+            borderColor: pillBorderColor,
           },
         ]}
       >
@@ -326,9 +333,14 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
       </View>
     );
 
+  const onLayout = (e: LayoutChangeEvent) => {
+    onTabBarHeightChange?.(e.nativeEvent.layout.height);
+  };
+
   return (
     <View
       pointerEvents="box-none"
+      onLayout={onLayout}
       style={[
         styles.floatOuter,
         {
@@ -343,8 +355,18 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
 }
 
 const styles = StyleSheet.create({
+  /**
+   * Custom tab bars do not receive `tabBarStyle`; without this, the bar stays in document flow
+   * and reserves a full-width bottom strip. Overlay so only the pill occludes content.
+   */
   floatOuter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'transparent',
+    zIndex: 100,
+    elevation: 100,
   },
   floatShadow: {
     borderRadius: 28,

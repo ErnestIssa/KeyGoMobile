@@ -31,6 +31,7 @@ export function AppTabs() {
         tabBarBackground: () => <View style={{ flex: 1, backgroundColor: 'transparent' }} />,
         tabBarStyle: {
           position: 'absolute',
+          height: 0,
           backgroundColor: 'transparent',
           borderTopWidth: 0,
           elevation: 0,

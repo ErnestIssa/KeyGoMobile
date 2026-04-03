@@ -165,6 +165,16 @@ export async function getProfile(): Promise<{ user: User }> {
   return request<{ user: User }>('/users/profile', { method: 'GET' });
 }
 
+/** PATCH /api/users/role — `{ role: "owner" | "driver" }`; returns new JWT + user */
+export async function switchRole(role: 'owner' | 'driver'): Promise<AuthResponse> {
+  const data = await request<AuthResponse>('/users/role', {
+    method: 'PATCH',
+    body: JSON.stringify({ role }),
+  });
+  await saveAuth(data.token, data.user);
+  return data;
+}
+
 /** POST /api/users/avatar — body: `{ image: dataUrl }` (data:image/jpeg;base64,...) */
 export async function uploadAvatar(imageDataUrl: string): Promise<{ user: User }> {
   return request<{ user: User }>('/users/avatar', {

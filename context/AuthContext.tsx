@@ -12,6 +12,7 @@ import {
   login as apiLogin,
   logout as apiLogout,
   register as apiRegister,
+  switchRole as apiSwitchRole,
   type RegisterPayload,
 } from '../services/api';
 import { getToken, loadStoredAuth, saveAuth } from '../services/authStorage';
@@ -26,6 +27,7 @@ type AuthContextValue = {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateUser: (next: User) => Promise<void>;
+  switchRole: (role: 'owner' | 'driver') => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -84,9 +86,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(next);
   }, []);
 
+  const switchRole = useCallback(async (role: 'owner' | 'driver') => {
+    const data = await apiSwitchRole(role);
+    setToken(data.token);
+    setUser(data.user);
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, token, ready, signIn, signUp, signOut, refreshProfile, updateUser }),
-    [user, token, ready, signIn, signUp, signOut, refreshProfile, updateUser]
+    () => ({
+      user,
+      token,
+      ready,
+      signIn,
+      signUp,
+      signOut,
+      refreshProfile,
+      updateUser,
+      switchRole,
+    }),
+    [user, token, ready, signIn, signUp, signOut, refreshProfile, updateUser, switchRole]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
-import { useCallback, useState } from 'react';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,11 +17,12 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import { RoleModeSection } from '../components/profile/RoleModeSection';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { useAuth } from '../context/AuthContext';
-import type { ProfileStackParamList } from '../navigation/types';
+import type { AppTabParamList, ProfileStackParamList } from '../navigation/types';
 import { ApiError, uploadAvatar } from '../services/api';
 import { resolveAvatarUri } from '../services/mediaUrl';
 import { hapticLight, hapticSelection } from '../services/haptics';
@@ -111,8 +113,9 @@ function SectionRow({
 
 export function ProfileScreen() {
   const navigation = useNavigation<Nav>();
+  const tabNavigation = navigation.getParent<BottomTabNavigationProp<AppTabParamList>>();
   const { user, signOut, refreshProfile, updateUser } = useAuth();
-  const { theme, setTheme, t } = useTheme();
+  const { theme, setTheme, t, ready: themeReady } = useTheme();
   const [pushOn, setPushOn] = useState(true);
   const [locOn, setLocOn] = useState(false);
   const [prefsReady, setPrefsReady] = useState(false);
@@ -121,6 +124,9 @@ export function ProfileScreen() {
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
+  /** Bumped once when prefs + theme are hydrated so native Switches remount with correct on-colors (RN quirk). */
+  const [prefSwitchRevision, setPrefSwitchRevision] = useState(0);
+  const prefHydrateOnceRef = useRef(false);
 
   const loadPrefs = useCallback(async () => {
     try {
@@ -172,17 +178,36 @@ export function ProfileScreen() {
     }
   };
 
-  const row = (label: string, value: boolean, onChange: (v: boolean) => void) => (
+  const prefsHydrated = prefsReady && themeReady;
+
+  useLayoutEffect(() => {
+    if (!prefsHydrated || prefHydrateOnceRef.current) return;
+    prefHydrateOnceRef.current = true;
+    setPrefSwitchRevision((n) => n + 1);
+  }, [prefsHydrated]);
+
+  const switchTrackColor = useMemo(
+    () => ({ false: t.bgSubtle, true: t.brandSoft }),
+    [t.bgSubtle, t.brandSoft]
+  );
+
+  /**
+   * `prefSwitchRevision` in keys: one remount after storage + theme load so Android/iOS
+   * Switch paints the blue “on” track/thumb. `theme` in key: new tokens after dark-mode toggle.
+   */
+  const row = (label: string, value: boolean, onChange: (v: boolean) => void, switchId: string) => (
     <View style={styles.switchRow}>
       <Text style={[styles.switchLabel, { color: t.text }]}>{label}</Text>
       <Switch
+        key={`${switchId}-${theme}-r${prefSwitchRevision}`}
         value={value}
         onValueChange={(v) => {
           void hapticSelection();
           onChange(v);
         }}
-        trackColor={{ false: t.bgSubtle, true: t.brandSoft }}
+        trackColor={switchTrackColor}
         thumbColor={value ? t.brand : t.textMuted}
+        ios_backgroundColor={t.bgSubtle}
       />
     </View>
   );
@@ -251,7 +276,7 @@ export function ProfileScreen() {
               Role: <Text style={{ color: t.brand, fontFamily: FF.bold, textTransform: 'capitalize' }}>{user?.role}</Text>
             </Text>
             <Text style={[styles.modalBody, { color: t.textMuted, marginTop: 14 }]}>
-              Signing out clears this session on this device. To use a different role (owner vs driver), sign out and register or sign in with another account — one login is tied to one role.
+              Signing out clears this session on this device. To use Owner vs Driver tools, use Role mode above — no second account needed.
             </Text>
             <View style={styles.modalActions}>
               <Button variant="danger" fullWidth onPress={() => { setSignOutOpen(false); void signOut(); }}>
@@ -317,6 +342,12 @@ export function ProfileScreen() {
       </Animated.View>
 
       <View style={{ height: 14 }} />
+
+      <Animated.View entering={FadeInDown.delay(56).duration(280)}>
+        <RoleModeSection onSwitched={() => tabNavigation?.navigate('Home')} />
+      </Animated.View>
+
+      <View style={{ height: 12 }} />
 
       <Animated.View entering={FadeInDown.delay(80).duration(260)}>
         <Text style={[styles.groupLabel, { color: t.canvasTextMuted }]}>Manage</Text>
@@ -403,7 +434,7 @@ export function ProfileScreen() {
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={[styles.sectionTitle, { color: t.danger }]}>Sign out</Text>
               <Text style={[styles.sectionSub, { color: t.textMuted }]} numberOfLines={2}>
-                View email & role, then confirm. Use another account to switch roles.
+                End this session on this device. Switch Owner/Driver anytime in Role mode above.
               </Text>
             </View>
             <Text style={[styles.chevron, { color: t.danger }]}>›</Text>
@@ -415,19 +446,29 @@ export function ProfileScreen() {
 
       <Card>
         <Text style={[styles.sectionHead, { color: t.text }]}>Preferences</Text>
-        {prefsReady ? (
+        {prefsHydrated ? (
           <>
-            {row('Dark mode', theme === 'dark', (v) => setTheme(v ? 'dark' : 'light'))}
+            {row('Dark mode', theme === 'dark', (v) => setTheme(v ? 'dark' : 'light'), 'pref-dark')}
             <View style={styles.divider} />
-            {row('Push notifications', pushOn, async (v) => {
-              setPushOn(v);
-              await AsyncStorage.setItem(KEY_PUSH, v ? '1' : '0');
-            })}
+            {row(
+              'Push notifications',
+              pushOn,
+              async (v) => {
+                setPushOn(v);
+                await AsyncStorage.setItem(KEY_PUSH, v ? '1' : '0');
+              },
+              'pref-push'
+            )}
             <View style={styles.divider} />
-            {row('Location sharing', locOn, async (v) => {
-              setLocOn(v);
-              await AsyncStorage.setItem(KEY_LOC, v ? '1' : '0');
-            })}
+            {row(
+              'Location sharing',
+              locOn,
+              async (v) => {
+                setLocOn(v);
+                await AsyncStorage.setItem(KEY_LOC, v ? '1' : '0');
+              },
+              'pref-loc'
+            )}
           </>
         ) : (
           <Text style={{ color: t.textMuted }}>Loading preferences…</Text>
