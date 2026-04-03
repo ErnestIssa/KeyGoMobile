@@ -149,6 +149,8 @@ export type Trip = {
   createdAt?: string;
   owner?: TripParty;
   driver?: TripParty;
+  /** From API — only the server decides which actions this user may perform. */
+  allowedActions?: { accept: boolean; complete: boolean };
 };
 
 /**
@@ -161,6 +163,14 @@ export async function getJobs(init?: RequestInit): Promise<Trip[]> {
 
 export async function getProfile(): Promise<{ user: User }> {
   return request<{ user: User }>('/users/profile', { method: 'GET' });
+}
+
+/** POST /api/users/avatar — body: `{ image: dataUrl }` (data:image/jpeg;base64,...) */
+export async function uploadAvatar(imageDataUrl: string): Promise<{ user: User }> {
+  return request<{ user: User }>('/users/avatar', {
+    method: 'POST',
+    body: JSON.stringify({ image: imageDataUrl }),
+  });
 }
 
 export type CreateTripPayload = {

@@ -1,16 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
-import type { AppStackParamList } from '../navigation/types';
+import { useSyncGlobalLoading } from '../context/LoadingOverlayContext';
+import { hapticError, hapticMedium, hapticSuccess } from '../services/haptics';
 import { acceptTrip, ApiError, completeTrip, getTrip, type Trip } from '../services/api';
+import { playNotify, playSuccess } from '../services/sounds';
 import { useTheme } from '../theme/ThemeContext';
 
-type Props = NativeStackScreenProps<AppStackParamList, 'TripDetail'>;
+type TripDetailNav = {
+  TripDetail: { id: string };
+};
+
+type Props = NativeStackScreenProps<TripDetailNav, 'TripDetail'>;
 
 export function TripDetailScreen({ route, navigation }: Props) {
   const { t } = useTheme();
@@ -19,6 +25,8 @@ export function TripDetailScreen({ route, navigation }: Props) {
   const [trip, setTrip] = useState<Trip | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useSyncGlobalLoading(loading);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,43 +53,51 @@ export function TripDetailScreen({ route, navigation }: Props) {
     }
   }, [navigation, trip?.pickupLocation, trip?.dropoffLocation]);
 
-  const canAccept = useMemo(() => user?.role === 'driver' && trip?.status === 'pending', [user?.role, trip?.status]);
-  const canComplete = useMemo(
-    () => user?.role === 'owner' && trip?.status === 'accepted',
-    [user?.role, trip?.status]
-  );
-
-  const doAccept = async () => {
+  const doAccept = () => {
     Alert.alert('Accept trip', 'Do you want to accept this trip?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Accept',
         style: 'default',
-        onPress: async () => {
-          try {
-            const res = await acceptTrip(id);
-            setTrip(res.trip);
-          } catch (e) {
-            Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not accept trip');
-          }
+        onPress: () => {
+          void (async () => {
+            try {
+              const res = await acceptTrip(id);
+              setTrip(res.trip);
+              await hapticMedium();
+              await hapticSuccess();
+              void playSuccess();
+            } catch (e) {
+              void hapticError();
+              void playNotify();
+              Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not accept trip');
+            }
+          })();
         },
       },
     ]);
   };
 
-  const doComplete = async () => {
+  const doComplete = () => {
     Alert.alert('Complete trip', 'Mark this trip as completed?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Complete',
         style: 'default',
-        onPress: async () => {
-          try {
-            const res = await completeTrip(id);
-            setTrip(res.trip);
-          } catch (e) {
-            Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not complete trip');
-          }
+        onPress: () => {
+          void (async () => {
+            try {
+              const res = await completeTrip(id);
+              setTrip(res.trip);
+              await hapticMedium();
+              await hapticSuccess();
+              void playSuccess();
+            } catch (e) {
+              void hapticError();
+              void playNotify();
+              Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not complete trip');
+            }
+          })();
         },
       },
     ]);
@@ -90,10 +106,7 @@ export function TripDetailScreen({ route, navigation }: Props) {
   return (
     <ScreenContainer align="stretch">
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator />
-          <Text style={{ color: t.textMuted, marginTop: 10 }}>Loading…</Text>
-        </View>
+        <View style={{ minHeight: 240 }} accessibilityElementsHidden />
       ) : error ? (
         <Card style={{ borderColor: t.danger }}>
           <Text style={{ color: t.danger, fontWeight: '700' }}>{error}</Text>
@@ -115,14 +128,16 @@ export function TripDetailScreen({ route, navigation }: Props) {
               Status: {trip.status}
             </Text>
 
+            {user?.role === 'driver' && trip.status === 'pending' && trip.owner?.id === user.id ? (
+              <Text style={[styles.hint, { color: t.textMuted }]}>
+                This is your own request — another driver can accept it.
+              </Text>
+            ) : null}
+
             <View style={{ height: 14 }} />
-            {canAccept ? (
-              <Button onPress={() => void doAccept()}>Accept trip</Button>
-            ) : null}
-            {canComplete ? (
-              <Button onPress={() => void doComplete()}>Mark complete</Button>
-            ) : null}
-            {!canAccept && !canComplete ? (
+            {trip.allowedActions?.accept ? <Button onPress={doAccept}>Accept trip</Button> : null}
+            {trip.allowedActions?.complete ? <Button onPress={doComplete}>Mark complete</Button> : null}
+            {!trip.allowedActions?.accept && !trip.allowedActions?.complete ? (
               <Button variant="secondary" onPress={() => navigation.goBack()}>
                 Back
               </Button>
@@ -135,11 +150,6 @@ export function TripDetailScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   route: {
     fontSize: 18,
     fontWeight: '900',
@@ -148,5 +158,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 14,
   },
+  hint: {
+    marginTop: 12,
+    fontSize: 13,
+    lineHeight: 18,
+  },
 });
-

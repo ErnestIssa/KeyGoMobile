@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -10,7 +9,6 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { BlobsBackground } from '../components/BlobsBackground';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -18,6 +16,8 @@ import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation/types';
 import { ApiError } from '../services/api';
+import { hapticError, hapticLight, hapticSelection } from '../services/haptics';
+import { playNotify } from '../services/sounds';
 import { useTheme } from '../theme/ThemeContext';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
@@ -36,6 +36,8 @@ export function LoginScreen({ navigation }: Props) {
     try {
       await signIn(email.trim(), password);
     } catch (e) {
+      void hapticError();
+      void playNotify();
       setError(e instanceof ApiError ? e.message : 'Sign in failed');
     } finally {
       setLoading(false);
@@ -43,25 +45,30 @@ export function LoginScreen({ navigation }: Props) {
   };
 
   return (
-    <ScreenContainer align="stretch">
-      <BlobsBackground />
+    <ScreenContainer align="stretch" tabBarInset={false} scrollable>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.topRow}>
-          <Text style={[styles.brand, { color: t.text }]}>
+          <Text style={[styles.brand, { color: t.canvasText }]}>
             Key<Text style={{ color: t.accent }}>Go</Text>
           </Text>
-          <Pressable onPress={toggleTheme} style={[styles.themeBtn, { borderColor: t.border, backgroundColor: t.bgElevated }]}>
+          <Pressable
+            onPress={() => {
+              void hapticSelection();
+              toggleTheme();
+            }}
+            style={[styles.themeBtn, { borderColor: t.border, backgroundColor: t.bgElevated }]}
+          >
             <Text style={{ color: t.text, fontWeight: '700' }}>{theme === 'dark' ? '☀️' : '🌙'}</Text>
           </Pressable>
         </View>
 
         <Animated.View entering={FadeInDown.duration(320)} style={styles.hero}>
           <Text style={[styles.kicker, { color: t.accent }]}>Welcome</Text>
-          <Text style={[styles.title, { color: t.text }]}>Sign in</Text>
-          <Text style={[styles.lede, { color: t.textMuted }]}>
+          <Text style={[styles.title, { color: t.canvasText }]}>Sign in</Text>
+          <Text style={[styles.lede, { color: t.canvasTextMuted }]}>
             Move your car from A → B with a trusted driver. Vehicle only — no passenger transport.
           </Text>
         </Animated.View>
@@ -84,11 +91,17 @@ export function LoginScreen({ navigation }: Props) {
             {error ? <Text style={[styles.error, { color: t.danger }]}>{error}</Text> : null}
 
             <View style={{ height: 14 }} />
-            <Button onPress={onSubmit} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : 'Login'}
+            <Button onPress={onSubmit} disabled={loading} loading={loading}>
+              Login
             </Button>
 
-            <Pressable style={styles.link} onPress={() => navigation.navigate('Register')}>
+            <Pressable
+              style={styles.link}
+              onPress={() => {
+                void hapticLight();
+                navigation.navigate('Register');
+              }}
+            >
               <Text style={[styles.linkText, { color: t.brand }]}>Create an account</Text>
             </Pressable>
           </Card>

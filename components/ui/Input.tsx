@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import { StyleSheet, TextInput, type TextInputProps, type TextStyle } from 'react-native';
 import { radii } from '../../theme/tokens';
+import { FF } from '../../theme/fonts';
 import { useTheme } from '../../theme/ThemeContext';
 
 type Props = TextInputProps & {
@@ -20,6 +21,7 @@ export const Input = forwardRef<TextInput, Props>(function Input({ style, ...pro
           backgroundColor: t.bgElevated,
           borderColor: t.border,
           color: t.text,
+          fontFamily: FF.regular,
         },
         style,
       ]}
@@ -30,10 +32,10 @@ export const Input = forwardRef<TextInput, Props>(function Input({ style, ...pro
 const styles = StyleSheet.create({
   base: {
     borderWidth: 1,
-    borderRadius: radii.xl,
+    borderRadius: radii.button,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
+    minHeight: 48,
   },
 });
-

@@ -1,39 +1,89 @@
 import { type ReactNode } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../theme/ThemeContext';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useContentTopInset, useFloatingTabBarBottomInset } from '../navigation/floatingTabBar';
 
 type Props = {
   children: ReactNode;
   /** 'center' for splash-style screens; 'stretch' for lists and forms */
   align?: 'center' | 'stretch';
+  /**
+   * When true (default), reserves space for the custom floating bottom tab bar on scrollable content.
+   * Set false for auth and other screens outside the tab navigator.
+   */
+  tabBarInset?: boolean;
+  /**
+   * When true, wraps children in a vertical ScrollView (content can scroll under the floating bar).
+   * When false, children handle scrolling (e.g. FlatList) — use `useFloatingTabBarBottomInset()` on `contentContainerStyle`.
+   * Default: true if `tabBarInset`, else false.
+   */
+  scrollable?: boolean;
 };
 
-export function ScreenContainer({ children, align = 'center' }: Props) {
-  const { t } = useTheme();
-  return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: t.bgPage }]} edges={['top', 'left', 'right']}>
-      <View style={[styles.inner, align === 'stretch' ? styles.innerStretch : styles.innerCenter]}>
-        {children}
+export function ScreenContainer({
+  children,
+  align = 'center',
+  tabBarInset = true,
+  scrollable,
+}: Props) {
+  const insets = useSafeAreaInsets();
+  const topInset = useContentTopInset();
+  const tabBarBottomInset = useFloatingTabBarBottomInset();
+  const bottomPad = tabBarInset ? tabBarBottomInset : Math.max(insets.bottom, 12) + 20;
+  const useOuterScroll = scrollable === true || (scrollable === undefined && tabBarInset);
+
+  const padding = { paddingHorizontal: 16, paddingTop: topInset, paddingBottom: bottomPad };
+
+  if (useOuterScroll) {
+    return (
+      <View style={styles.safe}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator
+          style={styles.flex}
+          contentContainerStyle={[
+            styles.scrollInner,
+            align === 'stretch' ? styles.scrollStretch : styles.scrollCenter,
+            padding,
+          ]}
+        >
+          {children}
+        </ScrollView>
       </View>
-    </SafeAreaView>
+    );
+  }
+
+  /** List / custom scroll: no outer insets — children apply top/bottom inside their scroll surface (matches Profile edge-to-edge). */
+  return (
+    <View style={styles.safe}>
+      <View style={[styles.flex, styles.fillBleed]}>{children}</View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
-  inner: {
+  flex: {
     flex: 1,
-    padding: 16,
   },
-  innerCenter: {
+  fillBleed: {
+    paddingTop: 0,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+  },
+  scrollInner: {
+    flexGrow: 1,
+  },
+  scrollCenter: {
     justifyContent: 'center',
     alignItems: 'center',
   },
-  innerStretch: {
+  scrollStretch: {
     justifyContent: 'flex-start',
     alignItems: 'stretch',
+    alignSelf: 'stretch',
   },
 });

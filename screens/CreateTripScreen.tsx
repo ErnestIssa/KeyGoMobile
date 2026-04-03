@@ -1,16 +1,21 @@
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
+import { useNavigation } from '@react-navigation/native';
 import { ScreenContainer } from '../components/ScreenContainer';
+import { useContentTopInset, useFloatingTabBarBottomInset } from '../navigation/floatingTabBar';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { useTheme } from '../theme/ThemeContext';
+import { hapticError, hapticSuccess } from '../services/haptics';
 import { ApiError, createTrip } from '../services/api';
-import { useNavigation } from '@react-navigation/native';
+import { playNotify, playSuccess } from '../services/sounds';
 
 export function CreateTripScreen() {
   const { t } = useTheme();
+  const topInset = useContentTopInset();
+  const scrollPad = useFloatingTabBarBottomInset();
   const navigation = useNavigation();
   const [pickupLocation, setPickupLocation] = useState('');
   const [dropoffLocation, setDropoffLocation] = useState('');
@@ -30,9 +35,12 @@ export function CreateTripScreen() {
         carDescription,
         paymentAmount: amount,
       });
-      // @ts-expect-error: nested nav to tabs
-      navigation.navigate('Tabs', { screen: 'MyTrips' });
+      await hapticSuccess();
+      void playSuccess();
+      navigation.getParent()?.navigate('MyTrips', { screen: 'MyTripsList' });
     } catch (e) {
+      void hapticError();
+      void playNotify();
       setError(e instanceof ApiError ? e.message : 'Could not create trip');
     } finally {
       setLoading(false);
@@ -40,12 +48,22 @@ export function CreateTripScreen() {
   };
 
   return (
-    <ScreenContainer align="stretch">
+    <ScreenContainer align="stretch" scrollable={false}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingTop: topInset,
+            paddingHorizontal: 16,
+            paddingBottom: scrollPad,
+          }}
+        >
         <Animated.View entering={FadeInDown.duration(280)} style={{ marginBottom: 12 }}>
           <Text style={[styles.kicker, { color: t.accent }]}>For owners</Text>
-          <Text style={[styles.title, { color: t.text }]}>Create a trip</Text>
-          <Text style={[styles.sub, { color: t.textMuted }]}>Vehicle relocation only (no passengers).</Text>
+          <Text style={[styles.title, { color: t.canvasText }]}>Create a trip</Text>
+          <Text style={[styles.sub, { color: t.canvasTextMuted }]}>Vehicle relocation only (no passengers).</Text>
         </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(60).duration(280)}>
@@ -68,11 +86,12 @@ export function CreateTripScreen() {
             {error ? <Text style={[styles.error, { color: t.danger }]}>{error}</Text> : null}
 
             <View style={{ height: 14 }} />
-            <Button onPress={onSubmit} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : 'Post trip'}
+            <Button onPress={onSubmit} disabled={loading} loading={loading}>
+              Post trip
             </Button>
           </Card>
         </Animated.View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
   );
@@ -107,4 +126,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

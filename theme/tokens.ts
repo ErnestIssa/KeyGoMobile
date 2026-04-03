@@ -1,14 +1,20 @@
 export type ThemeName = 'light' | 'dark';
 
-// Ported from `KeyGo/src/index.css` CSS variables.
+/**
+ * Mobile app uses a fixed canvas `#10141C` (plain background everywhere).
+ * `canvasText` / `canvasTextMuted` are for copy that sits directly on that canvas.
+ * `text` / `textMuted` target elevated surfaces (cards, inputs).
+ */
 export const tokens = {
   light: {
-    bgPage: '#f0f4fb',
+    bgPage: '#10141C',
     bgElevated: '#ffffff',
     bgSubtle: '#e8eef9',
     border: 'rgba(37, 99, 235, 0.12)',
     text: '#0a0f1a',
     textMuted: '#5c6578',
+    canvasText: '#f1f5f9',
+    canvasTextMuted: '#94a3b8',
     brand: '#1d4ed8',
     brandHover: '#1e40af',
     brandSoft: 'rgba(29, 78, 216, 0.1)',
@@ -21,12 +27,14 @@ export const tokens = {
     shadowLg: 'rgba(15, 23, 42, 0.12)',
   },
   dark: {
-    bgPage: '#06080d',
-    bgElevated: '#10141c',
-    bgSubtle: '#181e2a',
+    bgPage: '#10141C',
+    bgElevated: '#181e2a',
+    bgSubtle: '#222a38',
     border: 'rgba(244, 114, 182, 0.14)',
     text: '#f1f5f9',
     textMuted: '#94a3b8',
+    canvasText: '#f1f5f9',
+    canvasTextMuted: '#94a3b8',
     brand: '#60a5fa',
     brandHover: '#93c5fd',
     brandSoft: 'rgba(96, 165, 250, 0.15)',
@@ -42,9 +50,14 @@ export const tokens = {
 
 export type ThemeTokens = (typeof tokens)[ThemeName];
 
+/** Tailwind parity: `rounded-xl` buttons, `rounded-2xl` cards. */
 export const radii = {
-  xl: 16,
-  xxl: 20,
+  button: 12,
+  card: 16,
+  /** @deprecated use radii.button */
+  xl: 12,
+  /** @deprecated use radii.card */
+  xxl: 16,
 } as const;
 
 export const spacing = {
@@ -54,4 +67,3 @@ export const spacing = {
   lg: 20,
   xl: 24,
 } as const;
-

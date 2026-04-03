@@ -8,12 +8,13 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  getProfile,
   login as apiLogin,
   logout as apiLogout,
   register as apiRegister,
   type RegisterPayload,
 } from '../services/api';
-import { loadStoredAuth } from '../services/authStorage';
+import { getToken, loadStoredAuth, saveAuth } from '../services/authStorage';
 import type { User } from '../types/user';
 
 type AuthContextValue = {
@@ -23,6 +24,8 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (data: RegisterPayload) => Promise<void>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+  updateUser: (next: User) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -63,9 +66,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    try {
+      const t = await getToken();
+      if (!t) return;
+      const { user: u } = await getProfile();
+      await saveAuth(t, u);
+      setUser(u);
+    } catch {
+      /* offline / 401 handled elsewhere */
+    }
+  }, []);
+
+  const updateUser = useCallback(async (next: User) => {
+    const t = await getToken();
+    if (t) await saveAuth(t, next);
+    setUser(next);
+  }, []);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ user, token, ready, signIn, signUp, signOut }),
-    [user, token, ready, signIn, signUp, signOut]
+    () => ({ user, token, ready, signIn, signUp, signOut, refreshProfile, updateUser }),
+    [user, token, ready, signIn, signUp, signOut, refreshProfile, updateUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

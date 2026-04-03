@@ -1,16 +1,7 @@
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { BlobsBackground } from '../components/BlobsBackground';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -18,6 +9,8 @@ import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation/types';
 import { ApiError } from '../services/api';
+import { hapticError, hapticLight, hapticSelection } from '../services/haptics';
+import { playNotify } from '../services/sounds';
 import { useTheme } from '../theme/ThemeContext';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
@@ -43,6 +36,8 @@ export function RegisterScreen({ navigation }: Props) {
         role,
       });
     } catch (e) {
+      void hapticError();
+      void playNotify();
       setError(e instanceof ApiError ? e.message : 'Registration failed');
     } finally {
       setLoading(false);
@@ -50,16 +45,15 @@ export function RegisterScreen({ navigation }: Props) {
   };
 
   return (
-    <ScreenContainer align="stretch">
-      <BlobsBackground />
+    <ScreenContainer align="stretch" tabBarInset={false} scrollable>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Animated.View entering={FadeInDown.duration(320)} style={styles.hero}>
           <Text style={[styles.kicker, { color: t.accent }]}>New</Text>
-          <Text style={[styles.title, { color: t.text }]}>Create account</Text>
-          <Text style={[styles.lede, { color: t.textMuted }]}>
+          <Text style={[styles.title, { color: t.canvasText }]}>Create account</Text>
+          <Text style={[styles.lede, { color: t.canvasTextMuted }]}>
             Choose your role: owners post moves, drivers accept and relocate vehicles.
           </Text>
         </Animated.View>
@@ -91,9 +85,12 @@ export function RegisterScreen({ navigation }: Props) {
                 style={[
                   styles.roleBtn,
                   { borderColor: t.border, backgroundColor: t.bgSubtle },
-                  role === 'owner' && { borderColor: t.brand, backgroundColor: t.brandSoft as any },
+                  role === 'owner' && { borderColor: t.brand, backgroundColor: t.brandSoft as string },
                 ]}
-                onPress={() => setRole('owner')}
+                onPress={() => {
+                  void hapticSelection();
+                  setRole('owner');
+                }}
               >
                 <Text style={[styles.roleText, { color: role === 'owner' ? t.brand : t.textMuted }]}>Owner</Text>
               </Pressable>
@@ -101,9 +98,12 @@ export function RegisterScreen({ navigation }: Props) {
                 style={[
                   styles.roleBtn,
                   { borderColor: t.border, backgroundColor: t.bgSubtle },
-                  role === 'driver' && { borderColor: t.brand, backgroundColor: t.brandSoft as any },
+                  role === 'driver' && { borderColor: t.brand, backgroundColor: t.brandSoft as string },
                 ]}
-                onPress={() => setRole('driver')}
+                onPress={() => {
+                  void hapticSelection();
+                  setRole('driver');
+                }}
               >
                 <Text style={[styles.roleText, { color: role === 'driver' ? t.brand : t.textMuted }]}>Driver</Text>
               </Pressable>
@@ -112,11 +112,17 @@ export function RegisterScreen({ navigation }: Props) {
             {error ? <Text style={[styles.error, { color: t.danger }]}>{error}</Text> : null}
 
             <View style={{ height: 14 }} />
-            <Button onPress={onSubmit} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : 'Register'}
+            <Button onPress={onSubmit} disabled={loading} loading={loading}>
+              Register
             </Button>
 
-            <Pressable style={styles.link} onPress={() => navigation.navigate('Login')}>
+            <Pressable
+              style={styles.link}
+              onPress={() => {
+                void hapticLight();
+                navigation.navigate('Login');
+              }}
+            >
               <Text style={[styles.linkText, { color: t.brand }]}>Already have an account? Sign in</Text>
             </Pressable>
           </Card>

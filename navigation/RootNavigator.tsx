@@ -1,8 +1,9 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { BrandedLoading } from '../components/ui/BrandedLoading';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import { AuthStack } from './AuthStack';
-import { AppStack } from './AppStack';
+import { AppTabs } from './AppTabs';
 
 export function RootNavigator() {
   const { user, ready } = useAuth();
@@ -11,12 +12,12 @@ export function RootNavigator() {
   if (!ready || !themeReady) {
     return (
       <View style={[styles.boot, { backgroundColor: t.bgPage }]}>
-        <ActivityIndicator size="large" />
+        <BrandedLoading fullscreen />
       </View>
     );
   }
 
-  return user == null ? <AuthStack /> : <AppStack />;
+  return user == null ? <AuthStack /> : <AppTabs />;
 }
 
 const styles = StyleSheet.create({
@@ -24,6 +25,5 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
   },
 });
