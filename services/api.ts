@@ -139,10 +139,22 @@ export type TripParty = {
   email?: string;
 };
 
+export type TripVehicleLocation = {
+  latitude: number;
+  longitude: number;
+  heading?: number;
+  recordedAt: string;
+};
+
 export type Trip = {
   id: string;
   pickupLocation: string;
   dropoffLocation: string;
+  pickupLatitude?: number;
+  pickupLongitude?: number;
+  dropoffLatitude?: number;
+  dropoffLongitude?: number;
+  vehicleLocation?: TripVehicleLocation;
   carDescription: string;
   paymentAmount: number;
   status: string;
@@ -188,6 +200,10 @@ export type CreateTripPayload = {
   dropoffLocation: string;
   carDescription: string;
   paymentAmount: number;
+  pickupLatitude?: number;
+  pickupLongitude?: number;
+  dropoffLatitude?: number;
+  dropoffLongitude?: number;
 };
 
 export async function createTrip(payload: CreateTripPayload): Promise<{ trip: Trip }> {
@@ -220,5 +236,16 @@ export async function completeTrip(id: string): Promise<{ trip: Trip }> {
   return request<{ trip: Trip }>(`/trips/${encodeURIComponent(id)}/complete`, {
     method: 'POST',
     body: '{}',
+  });
+}
+
+/** PATCH /api/trips/:id/vehicle-location — driver-only, accepted trips. */
+export async function updateTripVehicleLocation(
+  id: string,
+  body: { latitude: number; longitude: number; heading?: number }
+): Promise<{ trip: Trip }> {
+  return request<{ trip: Trip }>(`/trips/${encodeURIComponent(id)}/vehicle-location`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
   });
 }

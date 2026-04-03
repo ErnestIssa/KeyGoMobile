@@ -7,8 +7,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -52,6 +54,8 @@ function InfoGlyph({ color }: { color: string }) {
 export function RoleModeSection({ onSwitched }: Props) {
   const { user, switchRole } = useAuth();
   const { t } = useTheme();
+  const { height: windowH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [trackW, setTrackW] = useState(0);
   const pillX = useSharedValue(0);
   const [confirmTarget, setConfirmTarget] = useState<AppRole | null>(null);
@@ -107,26 +111,42 @@ export function RoleModeSection({ onSwitched }: Props) {
 
   if (!canShow) return null;
 
+  const infoModalMaxH = Math.max(280, windowH - insets.top - insets.bottom - 32);
+  const infoBackdropPad = {
+    paddingTop: Math.max(16, insets.top + 8),
+    paddingBottom: Math.max(16, insets.bottom + 8),
+  };
+
   return (
     <>
       <Modal visible={infoTarget !== null} transparent animationType="fade" onRequestClose={() => setInfoTarget(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setInfoTarget(null)}>
-          <Pressable
-            style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]}
-            onPress={(e) => e.stopPropagation()}
+        <Pressable style={[styles.modalBackdrop, infoBackdropPad]} onPress={() => setInfoTarget(null)}>
+          <View
+            style={[
+              styles.modalCard,
+              styles.infoModalCard,
+              { backgroundColor: t.bgElevated, borderColor: t.border, maxHeight: infoModalMaxH },
+            ]}
           >
-            <Text style={[styles.modalTitle, { color: t.text }]}>
-              {infoTarget === 'owner' ? ROLE_INFO_OWNER_TITLE : ROLE_INFO_DRIVER_TITLE}
-            </Text>
-            <ScrollView style={styles.infoScroll} showsVerticalScrollIndicator>
+            <ScrollView
+              showsVerticalScrollIndicator
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.infoModalScrollContent}
+            >
+              <Text style={[styles.modalTitle, { color: t.text }]}>
+                {infoTarget === 'owner' ? ROLE_INFO_OWNER_TITLE : ROLE_INFO_DRIVER_TITLE}
+              </Text>
               <Text style={[styles.infoBody, { color: t.textMuted }]}>
                 {infoTarget === 'owner' ? ROLE_INFO_OWNER_BODY : ROLE_INFO_DRIVER_BODY}
               </Text>
+              <View style={styles.infoModalFooter}>
+                <Button variant="secondary" fullWidth onPress={() => setInfoTarget(null)}>
+                  Close
+                </Button>
+              </View>
             </ScrollView>
-            <Button variant="secondary" onPress={() => setInfoTarget(null)}>
-              Close
-            </Button>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
 
@@ -339,6 +359,18 @@ const styles = StyleSheet.create({
     width: '100%',
     maxHeight: '88%',
   },
+  infoModalCard: {
+    padding: 0,
+    overflow: 'hidden',
+  },
+  infoModalScrollContent: {
+    padding: 20,
+    paddingBottom: 24,
+    flexGrow: 1,
+  },
+  infoModalFooter: {
+    marginTop: 20,
+  },
   modalTitle: {
     fontSize: 20,
     fontFamily: FF.extrabold,
@@ -352,10 +384,6 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     gap: 10,
-  },
-  infoScroll: {
-    maxHeight: 320,
-    marginBottom: 12,
   },
   infoBody: {
     fontSize: 14,
