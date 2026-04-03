@@ -18,7 +18,7 @@ export const Input = forwardRef<TextInput, Props>(function Input({ style, ...pro
       style={[
         styles.base,
         {
-          backgroundColor: t.bgElevated,
+          backgroundColor: t.inputSurface,
           borderColor: t.border,
           color: t.text,
           fontFamily: FF.regular,
@@ -33,9 +33,9 @@ const styles = StyleSheet.create({
   base: {
     borderWidth: 1,
     borderRadius: radii.button,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 16,
-    minHeight: 48,
+    minHeight: 52,
   },
 });

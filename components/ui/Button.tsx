@@ -43,7 +43,7 @@ export function Button({
   hapticOnPress = true,
   ...props
 }: Props) {
-  const { t } = useTheme();
+  const { t, theme } = useTheme();
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
 
@@ -90,16 +90,13 @@ export function Button({
           borderColor: colors.border,
         },
         inactive ? styles.disabled : null,
-        colors.shadow ? styles.shadow : null,
+        colors.shadow ? (theme === 'light' ? styles.shadowLight : styles.shadowDark) : null,
         anim,
         style,
       ]}
     >
       {loading ? (
-        <View style={styles.loadingRow}>
-          <ActivityIndicator color={colors.text} size="small" />
-          <Text style={[styles.text, { color: colors.text, fontFamily: FF.semibold }]}>Working…</Text>
-        </View>
+        <ActivityIndicator color={colors.text} size="small" />
       ) : (
         <Text style={[styles.text, { color: colors.text, fontFamily: FF.semibold }]}>{children}</Text>
       )}
@@ -109,9 +106,9 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 48,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    minHeight: 52,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     borderRadius: radii.button,
     borderWidth: 1,
     alignItems: 'center',
@@ -124,20 +121,24 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.45,
   },
-  shadow: {
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+  shadowLight: {
+    shadowColor: '#1e3a8a',
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  shadowDark: {
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 4,
   },
   text: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    fontSize: 15,
+    lineHeight: 22,
+    letterSpacing: 0.2,
   },
 });
+

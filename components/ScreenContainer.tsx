@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useContentTopInset, useFloatingTabBarBottomInset } from '../navigation/floatingTabBar';
+import { spacing } from '../theme/tokens';
 
 type Props = {
   children: ReactNode;
@@ -32,7 +33,7 @@ export function ScreenContainer({
   const bottomPad = tabBarInset ? tabBarBottomInset : Math.max(insets.bottom, 12) + 20;
   const useOuterScroll = scrollable === true || (scrollable === undefined && tabBarInset);
 
-  const padding = { paddingHorizontal: 16, paddingTop: topInset, paddingBottom: bottomPad };
+  const padding = { paddingHorizontal: spacing.screenX, paddingTop: topInset, paddingBottom: bottomPad };
 
   if (useOuterScroll) {
     return (

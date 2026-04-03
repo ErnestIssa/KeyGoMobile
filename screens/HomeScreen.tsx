@@ -90,39 +90,41 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   hero: {
-    marginBottom: 14,
+    marginBottom: 20,
   },
   kicker: {
-    fontSize: 12,
-    letterSpacing: 1.2,
+    fontSize: 11,
+    letterSpacing: 1.35,
     textTransform: 'uppercase',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   h1: {
-    fontSize: 28,
-    letterSpacing: -0.5,
+    fontSize: 30,
+    letterSpacing: -0.6,
   },
   lede: {
-    marginTop: 10,
-    fontSize: 14,
-    lineHeight: 20,
+    marginTop: 12,
+    fontSize: 15,
+    lineHeight: 23,
   },
   roleLine: {
-    marginTop: 8,
+    marginTop: 10,
     fontSize: 14,
+    lineHeight: 21,
   },
   grid: {
-    gap: 12,
+    gap: 16,
   },
   cardWrap: {
     width: '100%',
   },
   cardTitle: {
-    fontSize: 18,
-    marginBottom: 6,
+    fontSize: 19,
+    marginBottom: 8,
+    letterSpacing: -0.2,
   },
   cardBody: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 23,
   },
 });

@@ -1,35 +1,38 @@
 export type ThemeName = 'light' | 'dark';
 
 /**
- * Mobile app uses a fixed canvas `#10141C` (plain background everywhere).
- * `canvasText` / `canvasTextMuted` are for copy that sits directly on that canvas.
- * `text` / `textMuted` target elevated surfaces (cards, inputs).
+ * Light: airy cool-white page, ink text on canvas, crisp cards.
+ * Dark: slate canvas (#10141C), elevated surfaces, soft pink accents on borders.
+ * `canvasText*` = copy on the page background; `text*` = copy on cards / inputs.
  */
 export const tokens = {
   light: {
-    bgPage: '#10141C',
+    bgPage: '#eef1f9',
     bgElevated: '#ffffff',
-    bgSubtle: '#e8eef9',
-    border: 'rgba(37, 99, 235, 0.12)',
-    text: '#0a0f1a',
-    textMuted: '#5c6578',
-    canvasText: '#f1f5f9',
-    canvasTextMuted: '#94a3b8',
+    bgSubtle: '#e4e9f4',
+    /** Fields inside white cards */
+    inputSurface: '#f4f6fc',
+    border: 'rgba(15, 23, 42, 0.09)',
+    text: '#0b1220',
+    textMuted: '#5a6578',
+    canvasText: '#0b1220',
+    canvasTextMuted: '#64708c',
     brand: '#1d4ed8',
-    brandHover: '#1e40af',
-    brandSoft: 'rgba(29, 78, 216, 0.1)',
-    accent: '#db2777',
-    accentSoft: 'rgba(219, 39, 119, 0.12)',
+    brandHover: '#1e3a8a',
+    brandSoft: 'rgba(29, 78, 216, 0.11)',
+    accent: '#be185d',
+    accentSoft: 'rgba(190, 24, 93, 0.11)',
     danger: '#b91c1c',
     dangerSoft: 'rgba(185, 28, 28, 0.1)',
-    ring: 'rgba(29, 78, 216, 0.45)',
-    shadow: 'rgba(15, 23, 42, 0.08)',
-    shadowLg: 'rgba(15, 23, 42, 0.12)',
+    ring: 'rgba(29, 78, 216, 0.4)',
+    shadow: 'rgba(15, 23, 42, 0.07)',
+    shadowLg: 'rgba(15, 23, 42, 0.1)',
   },
   dark: {
     bgPage: '#10141C',
     bgElevated: '#181e2a',
     bgSubtle: '#222a38',
+    inputSurface: '#141b28',
     border: 'rgba(244, 114, 182, 0.14)',
     text: '#f1f5f9',
     textMuted: '#94a3b8',
@@ -50,14 +53,13 @@ export const tokens = {
 
 export type ThemeTokens = (typeof tokens)[ThemeName];
 
-/** Tailwind parity: `rounded-xl` buttons, `rounded-2xl` cards. */
 export const radii = {
-  button: 12,
-  card: 16,
+  button: 14,
+  card: 20,
   /** @deprecated use radii.button */
-  xl: 12,
+  xl: 14,
   /** @deprecated use radii.card */
-  xxl: 16,
+  xxl: 20,
 } as const;
 
 export const spacing = {
@@ -66,4 +68,6 @@ export const spacing = {
   md: 16,
   lg: 20,
   xl: 24,
+  /** Auth / section gutters */
+  screenX: 22,
 } as const;

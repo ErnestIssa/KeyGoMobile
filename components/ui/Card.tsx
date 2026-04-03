@@ -6,6 +6,7 @@ import { useTheme } from '../../theme/ThemeContext';
 export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
   const { t, theme } = useTheme();
   const shadow = theme === 'dark' ? styles.shadowDark : styles.shadowLight;
+
   return (
     <View
       style={[
@@ -27,20 +28,20 @@ const styles = StyleSheet.create({
   base: {
     borderWidth: 1,
     borderRadius: radii.card,
-    padding: 20,
+    padding: 22,
   },
   shadowLight: {
     shadowColor: '#0f172a',
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowOpacity: 0.06,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4,
   },
   shadowDark: {
     shadowColor: '#000',
     shadowOpacity: 0.35,
     shadowRadius: 24,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5,
   },
 });

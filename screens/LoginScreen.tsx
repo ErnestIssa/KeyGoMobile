@@ -1,14 +1,9 @@
 import { useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+import { AuthBrandHero } from '../components/auth/AuthBrandHero';
+import { AuthScreenChrome } from '../components/auth/AuthScreenChrome';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -16,15 +11,16 @@ import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation/types';
 import { ApiError } from '../services/api';
-import { hapticError, hapticLight, hapticSelection } from '../services/haptics';
+import { hapticError, hapticLight } from '../services/haptics';
 import { playNotify } from '../services/sounds';
 import { useTheme } from '../theme/ThemeContext';
+import { FF } from '../theme/fonts';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export function LoginScreen({ navigation }: Props) {
   const { signIn } = useAuth();
-  const { t, toggleTheme, theme } = useTheme();
+  const { t } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,133 +41,142 @@ export function LoginScreen({ navigation }: Props) {
   };
 
   return (
-    <ScreenContainer align="stretch" tabBarInset={false} scrollable>
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <View style={styles.topRow}>
-          <Text style={[styles.brand, { color: t.canvasText }]}>
-            Key<Text style={{ color: t.accent }}>Go</Text>
-          </Text>
-          <Pressable
-            onPress={() => {
-              void hapticSelection();
-              toggleTheme();
-            }}
-            style={[styles.themeBtn, { borderColor: t.border, backgroundColor: t.bgElevated }]}
-          >
-            <Text style={{ color: t.text, fontWeight: '700' }}>{theme === 'dark' ? '☀️' : '🌙'}</Text>
-          </Pressable>
+    <KeyboardAvoidingView
+      style={styles.kav}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+    >
+      <ScreenContainer align="stretch" tabBarInset={false} scrollable>
+        <View style={styles.column}>
+          <AuthScreenChrome navigation={navigation} variant="login" />
+
+          <Animated.View entering={FadeIn.duration(380)} style={styles.brandBlock}>
+            <AuthBrandHero />
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(80).duration(340)} style={styles.titleBlock}>
+            <Text style={[styles.screenTitle, { color: t.canvasText, fontFamily: FF.bold }]}>Sign in</Text>
+          </Animated.View>
+
+          <Animated.View entering={FadeInDown.delay(120).duration(360)} style={styles.formWrap}>
+            <Card style={styles.authCard}>
+              <Text style={[styles.label, { color: t.textMuted, fontFamily: FF.semibold }]}>Email</Text>
+              <Input
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                autoComplete="email"
+              />
+
+              <View style={styles.fieldGap} />
+
+              <Text style={[styles.label, { color: t.textMuted, fontFamily: FF.semibold }]}>Password</Text>
+              <Input
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                textContentType="password"
+                autoComplete="password"
+              />
+
+              {error ? (
+                <Text style={[styles.error, { color: t.danger, fontFamily: FF.semibold }]} accessibilityLiveRegion="polite">
+                  {error}
+                </Text>
+              ) : null}
+
+              <View style={styles.beforeCta} />
+
+              <Button onPress={onSubmit} disabled={loading} loading={loading} fullWidth>
+                Sign in
+              </Button>
+
+              <View style={[styles.ruleLine, { backgroundColor: t.border }]} />
+
+              <Pressable
+                style={({ pressed }) => [styles.footerTap, pressed && { opacity: 0.75 }]}
+                onPress={() => {
+                  void hapticLight();
+                  navigation.navigate('Register');
+                }}
+              >
+                <Text style={[styles.footerMuted, { color: t.textMuted, fontFamily: FF.regular }]}>No account?</Text>
+                <Text style={[styles.footerAction, { color: t.brand, fontFamily: FF.bold }]}> Create one</Text>
+              </Pressable>
+            </Card>
+          </Animated.View>
         </View>
-
-        <Animated.View entering={FadeInDown.duration(320)} style={styles.hero}>
-          <Text style={[styles.kicker, { color: t.accent }]}>Welcome</Text>
-          <Text style={[styles.title, { color: t.canvasText }]}>Sign in</Text>
-          <Text style={[styles.lede, { color: t.canvasTextMuted }]}>
-            Move your car from A → B with a trusted driver. Vehicle only — no passenger transport.
-          </Text>
-        </Animated.View>
-
-        <Animated.View entering={FadeInDown.delay(60).duration(320)}>
-          <Card>
-            <Text style={[styles.label, { color: t.textMuted }]}>Email</Text>
-            <Input
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-            />
-            <View style={{ height: 12 }} />
-            <Text style={[styles.label, { color: t.textMuted }]}>Password</Text>
-            <Input value={password} onChangeText={setPassword} secureTextEntry textContentType="password" />
-
-            {error ? <Text style={[styles.error, { color: t.danger }]}>{error}</Text> : null}
-
-            <View style={{ height: 14 }} />
-            <Button onPress={onSubmit} disabled={loading} loading={loading}>
-              Login
-            </Button>
-
-            <Pressable
-              style={styles.link}
-              onPress={() => {
-                void hapticLight();
-                navigation.navigate('Register');
-              }}
-            >
-              <Text style={[styles.linkText, { color: t.brand }]}>Create an account</Text>
-            </Pressable>
-          </Card>
-        </Animated.View>
-      </KeyboardAvoidingView>
-    </ScreenContainer>
+      </ScreenContainer>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  kav: {
     flex: 1,
-    justifyContent: 'center',
   },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  column: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingBottom: 8,
+  },
+  brandBlock: {
+    marginBottom: 4,
+  },
+  titleBlock: {
     marginBottom: 18,
-  },
-  brand: {
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  themeBtn: {
-    borderWidth: 1,
-    borderRadius: 14,
-    width: 44,
-    height: 44,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  hero: {
-    marginBottom: 14,
+  screenTitle: {
+    fontSize: 22,
+    letterSpacing: -0.35,
+    fontWeight: '700',
   },
-  kicker: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1.2,
+  formWrap: {
+    width: '100%',
+  },
+  authCard: {
+    paddingVertical: 24,
+  },
+  label: {
+    fontSize: 11,
+    letterSpacing: 1.1,
     textTransform: 'uppercase',
-    marginBottom: 6,
+    marginBottom: 8,
+    fontWeight: '600',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: -0.5,
+  fieldGap: {
+    height: 18,
   },
-  lede: {
-    marginTop: 10,
+  error: {
+    marginTop: 14,
     fontSize: 14,
     lineHeight: 20,
   },
-  label: {
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: 6,
+  beforeCta: {
+    height: 22,
   },
-  error: {
-    marginTop: 12,
-    fontWeight: '600',
+  ruleLine: {
+    height: StyleSheet.hairlineWidth,
+    marginTop: 22,
+    marginBottom: 18,
+    alignSelf: 'stretch',
   },
-  link: {
-    marginTop: 14,
+  footerTap: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    paddingVertical: 4,
   },
-  linkText: {
-    fontSize: 16,
+  footerMuted: {
+    fontSize: 15,
+  },
+  footerAction: {
+    fontSize: 15,
     fontWeight: '700',
   },
 });

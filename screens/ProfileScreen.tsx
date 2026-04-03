@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,13 +16,15 @@ import {
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import { IconEditPencil } from '../components/icons/navIcons';
+import { AvatarEditorModal } from '../components/profile/AvatarEditorModal';
 import { RoleModeSection } from '../components/profile/RoleModeSection';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { useAuth } from '../context/AuthContext';
 import type { AppTabParamList, ProfileStackParamList } from '../navigation/types';
-import { ApiError, uploadAvatar } from '../services/api';
+import { uploadAvatar } from '../services/api';
 import { resolveAvatarUri } from '../services/mediaUrl';
 import { hapticLight, hapticSelection } from '../services/haptics';
 import { useTheme } from '../theme/ThemeContext';
@@ -120,10 +121,15 @@ export function ProfileScreen() {
   const [locOn, setLocOn] = useState(false);
   const [prefsReady, setPrefsReady] = useState(false);
   const [uploading, setUploading] = useState(false);
+  /** Bust RN image cache after upload so the new file at the same path reloads. */
+  const [avatarCacheKey, setAvatarCacheKey] = useState(0);
+  /** Show picker file:// immediately while upload runs (avoids blank if remote URL is slow or cache-stale). */
+  const [avatarLocalUri, setAvatarLocalUri] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
+  const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   /** Bumped once when prefs + theme are hydrated so native Switches remount with correct on-colors (RN quirk). */
   const [prefSwitchRevision, setPrefSwitchRevision] = useState(0);
   const prefHydrateOnceRef = useRef(false);
@@ -149,34 +155,23 @@ export function ProfileScreen() {
     navigation.navigate('Section', { title, subtitle });
   };
 
-  const pickAvatar = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Photos', 'Allow photo library access to set your profile picture.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.75,
-      base64: true,
-    });
-    if (result.canceled || !result.assets[0]?.base64) return;
-    const asset = result.assets[0];
-    const mime = asset.mimeType ?? 'image/jpeg';
-    const dataUri = `data:${mime};base64,${asset.base64}`;
-    setUploading(true);
-    try {
-      const { user: next } = await uploadAvatar(dataUri);
-      await updateUser(next);
-    } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Could not update photo';
-      Alert.alert('Upload failed', msg);
-    } finally {
-      setUploading(false);
-    }
-  };
+  const applyAvatarDataUri = useCallback(
+    async (dataUri: string) => {
+      setUploading(true);
+      try {
+        const { user: next } = await uploadAvatar(dataUri);
+        await updateUser(next);
+        setAvatarCacheKey((k) => k + 1);
+        setAvatarLocalUri(null);
+      } catch (e) {
+        setAvatarLocalUri(null);
+        throw e;
+      } finally {
+        setUploading(false);
+      }
+    },
+    [updateUser]
+  );
 
   const prefsHydrated = prefsReady && themeReady;
 
@@ -213,7 +208,13 @@ export function ProfileScreen() {
   );
 
   const rating = user?.ratingAverage ?? 5;
-  const avatarUri = resolveAvatarUri(user?.avatarUrl);
+  const remoteAvatarUri = resolveAvatarUri(user?.avatarUrl);
+  const avatarUriWithBust = useMemo(() => {
+    if (!remoteAvatarUri) return undefined;
+    const sep = remoteAvatarUri.includes('?') ? '&' : '?';
+    return `${remoteAvatarUri}${sep}v=${avatarCacheKey}`;
+  }, [remoteAvatarUri, avatarCacheKey]);
+  const avatarDisplayUri = avatarLocalUri ?? avatarUriWithBust;
   const ringSize = AVATAR + RING * 2;
   const cx = ringSize / 2;
   const rOuter = AVATAR / 2 + RING - 1;
@@ -290,9 +291,17 @@ export function ProfileScreen() {
         </Pressable>
       </Modal>
 
+      <AvatarEditorModal
+        visible={avatarEditorOpen}
+        onClose={() => setAvatarEditorOpen(false)}
+        initialRemoteUri={avatarDisplayUri ?? undefined}
+        initialLetter={(user?.name ?? '?').trim().charAt(0).toUpperCase() || '?'}
+        onApplyUpload={applyAvatarDataUri}
+      />
+
       <Animated.View entering={FadeInDown.delay(40).duration(280)} style={styles.hero}>
         <View style={styles.avatarWrap}>
-          <Svg width={ringSize} height={ringSize} style={styles.ringSvg}>
+          <Svg width={ringSize} height={ringSize} style={styles.ringSvg} pointerEvents="none">
             <Defs>
               <SvgLinearGradient id="avRing" x1="0" y1="0" x2="1" y2="1">
                 <Stop offset="0" stopColor={t.brand} />
@@ -303,12 +312,21 @@ export function ProfileScreen() {
             <Circle cx={cx} cy={cx} r={rOuter} stroke="url(#avRing)" strokeWidth={RING} fill="none" />
           </Svg>
           <Pressable
-            onPress={() => void pickAvatar()}
+            onPress={() => {
+              void hapticLight();
+              setAvatarEditorOpen(true);
+            }}
             disabled={uploading}
-            style={[styles.avatarInner, { backgroundColor: t.bgSubtle, borderColor: t.bgElevated }]}
+            style={[styles.avatarInner, { backgroundColor: t.bgSubtle, borderColor: t.bgElevated, zIndex: 1 }]}
+            accessibilityLabel="Profile photo"
           >
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={styles.avatarImg} />
+            {avatarDisplayUri ? (
+              <Image
+                key={`${avatarDisplayUri}-${avatarCacheKey}`}
+                source={{ uri: avatarDisplayUri }}
+                style={styles.avatarImg}
+                resizeMode="cover"
+              />
             ) : (
               <Text style={[styles.avatarInitial, { color: t.brand }]}>
                 {(user?.name ?? '?').trim().charAt(0).toUpperCase() || '?'}
@@ -319,8 +337,11 @@ export function ProfileScreen() {
                 <ActivityIndicator color="#fff" />
               </View>
             ) : null}
-            <View style={[styles.cameraBadge, { backgroundColor: t.brand, borderColor: t.bgElevated }]}>
-              <Text style={styles.cameraGlyph}>📷</Text>
+            <View
+              style={[styles.editBadge, { backgroundColor: t.brand, borderColor: t.bgElevated }]}
+              pointerEvents="none"
+            >
+              <IconEditPencil size={11} color="#ffffff" strokeWidth={2.2} />
             </View>
           </Pressable>
         </View>
@@ -337,7 +358,6 @@ export function ProfileScreen() {
             <Text style={[styles.ratingNum, { color: t.canvasText }]}>{rating.toFixed(1)}</Text>
             <Text style={[styles.ratingLabel, { color: t.canvasTextMuted }]}>rating</Text>
           </View>
-          <Text style={[styles.tapHint, { color: t.canvasTextMuted }]}>Tap the photo to update</Text>
         </View>
       </Animated.View>
 
@@ -548,19 +568,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cameraBadge: {
+  editBadge: {
     position: 'absolute',
     bottom: 2,
     right: 2,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-  },
-  cameraGlyph: {
-    fontSize: 14,
   },
   heroText: {
     flex: 1,
@@ -594,10 +611,6 @@ const styles = StyleSheet.create({
   ratingLabel: {
     fontSize: 13,
     fontWeight: '600',
-  },
-  tapHint: {
-    marginTop: 8,
-    fontSize: 12,
   },
   groupLabel: {
     fontSize: 11,

@@ -194,3 +194,18 @@ export function IconProfile({ size = 26, color = 'currentColor', strokeWidth = D
     </Svg>
   );
 }
+
+/** Tiny edit mark for avatar (high-contrast on brand circle). */
+export function IconEditPencil({ size = 11, color = '#ffffff', strokeWidth = 2.2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"
+        stroke={color as string}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}

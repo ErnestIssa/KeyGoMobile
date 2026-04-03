@@ -86,7 +86,7 @@ function ThemedApp() {
       <NavigationContainer theme={navTheme(theme)}>
         <RootNavigator />
       </NavigationContainer>
-      <StatusBar style="light" translucent />
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} translucent />
     </View>
   );
 }
