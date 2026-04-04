@@ -20,3 +20,17 @@ export type MapTrackablePosition = {
 
 /** Normalized store for rendering multiple markers without prop drilling. */
 export type MapTrackableFleet = Record<MapTrackableId, MapTrackablePosition>;
+
+/**
+ * Fleet vehicles from API / simulation — `{ id, lat, lng }` matches common JSON;
+ * convert to Mapbox `[lng, lat]` before `PointAnnotation`.
+ */
+export type VehicleLatLng = {
+  id: string;
+  lat: number;
+  lng: number;
+};
+
+export function vehicleToLngLat(v: VehicleLatLng): [number, number] {
+  return [v.lng, v.lat];
+}

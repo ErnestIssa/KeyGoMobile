@@ -239,6 +239,19 @@ export async function completeTrip(id: string): Promise<{ trip: Trip }> {
   });
 }
 
+/** GET /api/vehicles — `{ id, lat, lng, ... }[]` (requires JWT). */
+export type VehiclePositionRow = {
+  id: string;
+  lat: number;
+  lng: number;
+  status?: string;
+  speedKmh?: number;
+};
+
+export async function fetchVehicles(init?: RequestInit): Promise<VehiclePositionRow[]> {
+  return request<VehiclePositionRow[]>('/vehicles', { method: 'GET', ...init });
+}
+
 /** PATCH /api/trips/:id/vehicle-location — driver-only, accepted trips. */
 export async function updateTripVehicleLocation(
   id: string,

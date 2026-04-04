@@ -3,5 +3,5 @@ export { DEFAULT_MAP_CENTER, DEFAULT_MAP_REGION, DEFAULT_MAP_ZOOM } from './cons
 export { isValidLatitude, isValidLatLng, isValidLongitude } from './validation';
 export { MAPBOX_ACCESS_TOKEN } from './env';
 export { tripDropoffCoord, tripPickupCoord, tripVehicleSample } from './tripGeo';
-export type { MapTrackableFleet, MapTrackableId, MapTrackablePosition } from './tracking';
-export { TRACKABLE_USER_ID } from './tracking';
+export type { MapTrackableFleet, MapTrackableId, MapTrackablePosition, VehicleLatLng } from './tracking';
+export { TRACKABLE_USER_ID, vehicleToLngLat } from './tracking';

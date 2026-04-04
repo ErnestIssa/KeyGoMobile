@@ -48,3 +48,8 @@ export function playSuccess() {
 export function playNotify() {
   return play('notify');
 }
+
+/** Short tap for map markers (uses notify clip; optional haptics in caller). */
+export function playMarkerTap() {
+  return play('notify');
+}
