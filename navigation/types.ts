@@ -22,12 +22,15 @@ export type ActionStackParamList = {
 export type ProfileStackParamList = {
   ProfileHome: undefined;
   Section: { title: string; subtitle: string };
+  UserProfile: { userId: string };
 };
 
 export type ChatStackParamList = {
   ConversationsList: undefined;
   ChatThread: {
     conversationId: string;
+    /** Other participant — for profile link */
+    peerUserId?: string;
     /** Short label e.g. "Jane S." */
     peerDisplayName?: string;
     peerAvatarUrl?: string;

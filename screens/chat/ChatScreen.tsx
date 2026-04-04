@@ -16,7 +16,7 @@ import { ScreenContainer } from '../../components/ScreenContainer';
 import { ChatAvatar } from '../../components/chat/ChatAvatar';
 import { useAuth } from '../../context/AuthContext';
 import { useChatUnread } from '../../context/ChatUnreadContext';
-import { useFloatingTabBarBottomInset } from '../../navigation/floatingTabBar';
+import { useChatThreadComposerBottomInset } from '../../navigation/floatingTabBar';
 import type { ChatStackParamList } from '../../navigation/types';
 import { friendlyErrorMessage } from '../../lib/userFacingError';
 import { listChatMessages, markConversationRead, postChatMessage, type ChatMessage } from '../../services/api';
@@ -30,10 +30,17 @@ export function ChatScreen() {
   const { user } = useAuth();
   const { refreshUnread } = useChatUnread();
   const insets = useSafeAreaInsets();
-  const scrollPad = useFloatingTabBarBottomInset();
+  const scrollPad = useChatThreadComposerBottomInset();
   const navigation = useNavigation();
   const route = useRoute<RouteProp<ChatStackParamList, 'ChatThread'>>();
-  const { conversationId, peerDisplayName, peerAvatarUrl, peerName, otherUserName } = route.params;
+  const {
+    conversationId,
+    peerUserId,
+    peerDisplayName,
+    peerAvatarUrl,
+    peerName,
+    otherUserName,
+  } = route.params;
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -99,7 +106,17 @@ export function ChatScreen() {
           <Pressable onPress={() => navigation.goBack()} hitSlop={12} style={styles.backHit}>
             <Text style={{ color: t.brand, fontFamily: FF.semibold, fontSize: 16 }}>‹ Back</Text>
           </Pressable>
-          <View style={styles.headerCenter}>
+          <Pressable
+            style={styles.headerCenter}
+            onPress={() => {
+              if (!peerUserId) return;
+              navigation.getParent()?.navigate('Profile', {
+                screen: 'UserProfile',
+                params: { userId: peerUserId },
+              });
+            }}
+            disabled={!peerUserId}
+          >
             <ChatAvatar
               name={peerName ?? otherUserName ?? '?'}
               avatarUrl={peerAvatarUrl}
@@ -108,7 +125,7 @@ export function ChatScreen() {
             <Text style={[styles.headerTitle, { color: t.text, fontFamily: FF.bold }]} numberOfLines={1}>
               {peerDisplayName ?? otherUserName ?? 'Chat'}
             </Text>
-          </View>
+          </Pressable>
           <View style={{ width: 56 }} />
         </View>
 
@@ -129,6 +146,18 @@ export function ChatScreen() {
             onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
             renderItem={({ item }) => {
               const mine = item.senderId === myId;
+              const inboundUnread = !mine && item.isUnread;
+              const ds = item.deliveryStatus;
+              const deliveryLabel =
+                ds === 'read' ? 'Read' : ds === 'delivered' ? 'Delivered' : ds === 'sent' ? 'Sent' : '';
+              const deliveryTint =
+                ds === 'read'
+                  ? '#bbf7d0'
+                  : ds === 'delivered'
+                    ? '#93c5fd'
+                    : ds === 'sent'
+                      ? '#fbcfe8'
+                      : 'rgba(255,255,255,0.75)';
               return (
                 <View
                   style={[
@@ -148,7 +177,11 @@ export function ChatScreen() {
                       styles.bubble,
                       mine
                         ? { backgroundColor: t.brand }
-                        : { backgroundColor: t.bgSubtle, borderWidth: StyleSheet.hairlineWidth, borderColor: t.border },
+                        : {
+                            backgroundColor: inboundUnread ? t.brandSoft : t.bgSubtle,
+                            borderWidth: StyleSheet.hairlineWidth,
+                            borderColor: inboundUnread ? t.brand : t.border,
+                          },
                     ]}
                   >
                     <Text
@@ -161,19 +194,30 @@ export function ChatScreen() {
                     >
                       {item.text}
                     </Text>
-                    <Text
-                      style={{
-                        color: mine ? 'rgba(255,255,255,0.75)' : t.textMuted,
-                        fontSize: 11,
-                        marginTop: 4,
-                        fontFamily: FF.regular,
-                      }}
-                    >
-                      {new Date(item.createdAt).toLocaleTimeString(undefined, {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
+                    <View style={styles.metaRow}>
+                      <Text
+                        style={{
+                          color: mine ? 'rgba(255,255,255,0.75)' : t.textMuted,
+                          fontSize: 11,
+                          fontFamily: FF.regular,
+                        }}
+                      >
+                        {new Date(item.createdAt).toLocaleTimeString(undefined, {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </Text>
+                      {mine && deliveryLabel ? (
+                        <Text style={{ color: deliveryTint, fontSize: 11, fontFamily: FF.semibold, marginLeft: 8 }}>
+                          {deliveryLabel}
+                        </Text>
+                      ) : null}
+                      {!mine && inboundUnread ? (
+                        <Text style={{ color: t.brand, fontSize: 11, fontFamily: FF.semibold, marginLeft: 8 }}>
+                          New
+                        </Text>
+                      ) : null}
+                    </View>
                   </View>
                   {mine ? (
                     <ChatAvatar
@@ -273,6 +317,7 @@ const styles = StyleSheet.create({
   bubbleRowMine: { justifyContent: 'flex-end' },
   bubbleRowTheirs: { justifyContent: 'flex-start' },
   bubble: { maxWidth: '85%', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', marginTop: 4 },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',

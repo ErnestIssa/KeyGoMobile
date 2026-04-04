@@ -24,3 +24,9 @@ export function useFloatingTabBarBottomInset(): number {
   const insets = useSafeAreaInsets();
   return FLOATING_TAB_BAR_PILL_HEIGHT + insets.bottom + 12;
 }
+
+/** When the chat thread is open the tab bar animates away — composer only needs safe-area padding. */
+export function useChatThreadComposerBottomInset(): number {
+  const insets = useSafeAreaInsets();
+  return Math.max(insets.bottom, 10) + 14;
+}

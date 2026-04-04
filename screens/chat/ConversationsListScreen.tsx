@@ -1,8 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,6 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { ChatAvatar } from '../../components/chat/ChatAvatar';
 import { Button } from '../../components/ui/Button';
@@ -24,9 +27,12 @@ import {
   listChatRecentTrips,
   listConversations,
   createConversation,
+  deleteConversation,
+  type ChatActivityLogRow,
   type ChatRecentTripRow,
   type ChatUserPreview,
   type ConversationListItem,
+  type LastMessageStatus,
 } from '../../services/api';
 import { useTheme } from '../../theme/ThemeContext';
 import { FF } from '../../theme/fonts';
@@ -36,6 +42,65 @@ const statusLabel: Record<string, string> = {
   accepted: 'In progress',
   completed: 'Done',
 };
+
+function formatShortTime(iso?: string): string {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '';
+  }
+}
+
+function lastStatusMeta(
+  status: LastMessageStatus | undefined,
+  t: { textMuted: string; brand: string }
+): { label: string; color: string } {
+  switch (status) {
+    case 'sent':
+      return { label: 'Sent', color: '#ec4899' };
+    case 'delivered':
+      return { label: 'Delivered', color: '#3b82f6' };
+    case 'read':
+      return { label: 'Read', color: '#22c55e' };
+    case 'received':
+      return { label: 'New', color: '#ec4899' };
+    default:
+      return { label: '', color: t.textMuted };
+  }
+}
+
+function CollapsibleSection({
+  title,
+  expanded,
+  onToggle,
+  children,
+  t,
+}: {
+  title: string;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+  t: ReturnType<typeof useTheme>['t'];
+}) {
+  return (
+    <View style={styles.section}>
+      <Pressable
+        onPress={onToggle}
+        style={({ pressed }) => [
+          styles.dropdownHeader,
+          { borderColor: t.border, backgroundColor: t.bgElevated },
+          pressed && { opacity: 0.9 },
+        ]}
+      >
+        <Text style={[styles.sectionTitle, { color: t.canvasTextMuted, fontFamily: FF.semibold }]}>{title}</Text>
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={t.textMuted} />
+      </Pressable>
+      {expanded ? <View style={styles.dropdownBody}>{children}</View> : null}
+    </View>
+  );
+}
 
 export function ConversationsListScreen() {
   const { t } = useTheme();
@@ -48,10 +113,15 @@ export function ConversationsListScreen() {
   const [conversations, setConversations] = useState<ConversationListItem[]>([]);
   const [matches, setMatches] = useState<{ user: ChatUserPreview; conversationId: string | null }[]>([]);
   const [recentTrips, setRecentTrips] = useState<ChatRecentTripRow[]>([]);
+  const [activities, setActivities] = useState<ChatActivityLogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [startingId, setStartingId] = useState<string | null>(null);
+  const [activityOpen, setActivityOpen] = useState(true);
+  const [peopleOpen, setPeopleOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ConversationListItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -64,6 +134,7 @@ export function ConversationsListScreen() {
       setConversations(convRes.conversations);
       setMatches(matchRes.matches);
       setRecentTrips(tripRes.trips);
+      setActivities(tripRes.activities ?? []);
     } catch (e) {
       setError(friendlyErrorMessage(e));
     } finally {
@@ -96,19 +167,27 @@ export function ConversationsListScreen() {
 
   const openThread = (
     conversationId: string,
-    peer: { name: string; displayName?: string; avatarUrl?: string }
+    peer: { id: string; name: string; displayName?: string; avatarUrl?: string }
   ) => {
     navigation.navigate('ChatThread', {
       conversationId,
+      peerUserId: peer.id,
       peerDisplayName: peer.displayName ?? peer.name,
       peerAvatarUrl: peer.avatarUrl,
       peerName: peer.name,
     });
   };
 
+  const goPeerProfile = (userId: string) => {
+    navigation.getParent()?.navigate('Profile', {
+      screen: 'UserProfile',
+      params: { userId },
+    });
+  };
+
   const startOrOpenChat = async (
     participantId: string,
-    peer: { name: string; displayName?: string; avatarUrl?: string },
+    peer: { id: string; name: string; displayName?: string; avatarUrl?: string },
     existingId: string | null
   ) => {
     if (user?.id && participantId === user.id) {
@@ -121,13 +200,38 @@ export function ConversationsListScreen() {
     setStartingId(participantId);
     try {
       const res = await createConversation(participantId);
-      openThread(res.conversation.id, peer);
+      openThread(res.conversation.id, { ...peer, id: participantId });
     } catch (e) {
       setError(friendlyErrorMessage(e));
     } finally {
       setStartingId(null);
     }
   };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await deleteConversation(deleteTarget.id);
+      setConversations((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      void refreshUnread();
+    } catch (e) {
+      setError(friendlyErrorMessage(e));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const activityRows = activities.length
+    ? activities
+    : recentTrips.map((trip) => ({
+        id: `${trip.id}-fallback`,
+        tripId: trip.id,
+        at: trip.updatedAt ?? trip.createdAt,
+        who: [trip.owner?.name, trip.driver?.name].filter(Boolean).join(' & ') || 'Trip',
+        summary: `${statusLabel[trip.status] ?? trip.status} · ${trip.pickupLocation} → ${trip.dropoffLocation}`,
+      }));
 
   return (
     <ScreenContainer align="stretch" scrollable={false}>
@@ -159,43 +263,46 @@ export function ConversationsListScreen() {
           </Card>
         ) : null}
 
-        {!loading && recentTrips.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: t.canvasTextMuted, fontFamily: FF.semibold }]}>
-              Recent activity
-            </Text>
-            {recentTrips.slice(0, 8).map((trip) => (
-              <Card key={trip.id} style={{ ...styles.card, borderColor: t.border, backgroundColor: t.bgElevated }}>
-                <Text style={{ color: t.text, fontFamily: FF.semibold }} numberOfLines={1}>
-                  {trip.pickupLocation} → {trip.dropoffLocation}
+        {!loading && activityRows.length > 0 ? (
+          <CollapsibleSection
+            title="Recent activity"
+            expanded={activityOpen}
+            onToggle={() => setActivityOpen((o) => !o)}
+            t={t}
+          >
+            {activityRows.map((row) => (
+              <View
+                key={row.id}
+                style={[styles.logRow, { borderBottomColor: t.border }]}
+              >
+                <Text style={{ color: t.textMuted, fontFamily: FF.regular, fontSize: 12 }}>
+                  {formatShortTime(row.at)}
                 </Text>
-                <Text style={{ color: t.textMuted, fontFamily: FF.regular, marginTop: 4, fontSize: 13 }}>
-                  {statusLabel[trip.status] ?? trip.status}
-                  {trip.owner?.name || trip.driver?.name
-                    ? ` · ${trip.owner?.name ?? '?'} & ${trip.driver?.name ?? '?'}`
-                    : ''}
+                <Text style={{ color: t.text, fontFamily: FF.semibold, fontSize: 14, marginTop: 4 }} numberOfLines={2}>
+                  {row.summary}
                 </Text>
-              </Card>
+                <Text style={{ color: t.textMuted, fontFamily: FF.regular, fontSize: 13, marginTop: 4 }} numberOfLines={1}>
+                  {row.who}
+                </Text>
+              </View>
             ))}
-          </View>
+          </CollapsibleSection>
         ) : null}
 
         {!loading && displayMatches.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: t.canvasTextMuted, fontFamily: FF.semibold }]}>
-              People you can message
-            </Text>
+          <CollapsibleSection
+            title="People you can message"
+            expanded={peopleOpen}
+            onToggle={() => setPeopleOpen((o) => !o)}
+            t={t}
+          >
             {displayMatches.map((m) => (
               <Card
                 key={m.user.id}
                 style={{ ...styles.rowCard, borderColor: t.border, backgroundColor: t.bgElevated }}
               >
                 <View style={styles.rowBetween}>
-                  <ChatAvatar
-                    name={m.user.name}
-                    avatarUrl={m.user.avatarUrl}
-                    size={40}
-                  />
+                  <ChatAvatar name={m.user.name} avatarUrl={m.user.avatarUrl} size={40} />
                   <View style={styles.flex}>
                     <Text style={{ color: t.text, fontFamily: FF.semibold }} numberOfLines={1}>
                       {m.user.displayName ?? m.user.name}
@@ -209,6 +316,7 @@ export function ConversationsListScreen() {
                       void startOrOpenChat(
                         m.user.id,
                         {
+                          id: m.user.id,
                           name: m.user.name,
                           displayName: m.user.displayName,
                           avatarUrl: m.user.avatarUrl,
@@ -225,50 +333,97 @@ export function ConversationsListScreen() {
                 </View>
               </Card>
             ))}
-          </View>
+          </CollapsibleSection>
         ) : null}
 
         {!loading && displayConversations.length > 0 ? (
           <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: t.canvasTextMuted, fontFamily: FF.semibold }]}>
+            <Text style={[styles.sectionTitleStatic, { color: t.canvasTextMuted, fontFamily: FF.semibold }]}>
               Conversations
             </Text>
-            {displayConversations.map((c) => (
-              <Pressable
-                key={c.id}
-                onPress={() =>
-                  openThread(c.id, {
-                    name: c.otherUser.name,
-                    displayName: c.otherUser.displayName,
-                    avatarUrl: c.otherUser.avatarUrl,
-                  })
-                }
-                style={({ pressed }) => [pressed && { opacity: 0.85 }]}
-              >
-                <Card style={{ ...styles.rowCard, borderColor: t.border, backgroundColor: t.bgElevated }}>
-                  <View style={styles.convRow}>
-                    <ChatAvatar name={c.otherUser.name} avatarUrl={c.otherUser.avatarUrl} size={40} />
-                    <View style={styles.flex}>
-                  <Text style={{ color: t.text, fontFamily: FF.semibold }} numberOfLines={1}>
-                    {c.otherUser.displayName ?? c.otherUser.name}
-                  </Text>
-                  {c.lastMessagePreview ? (
-                    <Text
-                      style={{ color: t.textMuted, fontFamily: FF.regular, marginTop: 4, fontSize: 14 }}
-                      numberOfLines={2}
-                    >
-                      {c.lastMessagePreview}
-                    </Text>
-                  ) : (
-                    <Text style={{ color: t.textMuted, fontFamily: FF.regular, marginTop: 4, fontSize: 13 }}>
-                      No messages yet
-                    </Text>
-                  )}
+            {displayConversations.map((c) => {
+              const st = lastStatusMeta(c.lastMessageStatus, t);
+              return (
+                <ReanimatedSwipeable
+                  key={c.id}
+                  friction={2}
+                  overshootLeft={false}
+                  overshootRight={false}
+                  renderLeftActions={() => (
+                    <View style={[styles.swipeSide, { backgroundColor: t.brand }]}>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => goPeerProfile(c.otherUserId)}
+                        style={styles.swipeBtn}
+                      >
+                        <Ionicons name="person-circle" size={30} color="#fff" />
+                      </Pressable>
                     </View>
-                  </View>
-                </Card>
-              </Pressable>
-            ))}
+                  )}
+                  renderRightActions={() => (
+                    <View style={[styles.swipeSide, { backgroundColor: '#dc2626' }]}>
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => setDeleteTarget(c)}
+                        style={styles.swipeBtn}
+                      >
+                        <Ionicons name="trash" size={26} color="#fff" />
+                      </Pressable>
+                    </View>
+                  )}
+                >
+                  <Pressable
+                    onPress={() =>
+                      openThread(c.id, {
+                        id: c.otherUserId,
+                        name: c.otherUser.name,
+                        displayName: c.otherUser.displayName,
+                        avatarUrl: c.otherUser.avatarUrl,
+                      })
+                    }
+                    style={({ pressed }) => [pressed && { opacity: 0.92 }]}
+                  >
+                    <Card style={{ ...styles.rowCard, borderColor: t.border, backgroundColor: t.bgElevated }}>
+                      <View style={styles.convRow}>
+                        <ChatAvatar name={c.otherUser.name} avatarUrl={c.otherUser.avatarUrl} size={40} />
+                        <View style={styles.flex}>
+                          <View style={styles.convTitleRow}>
+                            <Text
+                              style={{ color: t.text, fontFamily: FF.semibold, flex: 1 }}
+                              numberOfLines={1}
+                            >
+                              {c.otherUser.displayName ?? c.otherUser.name}
+                            </Text>
+                            {c.lastMessageAt ? (
+                              <Text style={{ color: t.textMuted, fontFamily: FF.regular, fontSize: 11, marginLeft: 8 }}>
+                                {formatShortTime(c.lastMessageAt)}
+                              </Text>
+                            ) : null}
+                          </View>
+                          {st.label ? (
+                            <Text style={{ color: st.color, fontFamily: FF.semibold, fontSize: 11, marginTop: 2 }}>
+                              {st.label}
+                            </Text>
+                          ) : null}
+                          {c.lastMessagePreview ? (
+                            <Text
+                              style={{ color: t.textMuted, fontFamily: FF.regular, marginTop: 4, fontSize: 14 }}
+                              numberOfLines={2}
+                            >
+                              {c.lastMessagePreview}
+                            </Text>
+                          ) : (
+                            <Text style={{ color: t.textMuted, fontFamily: FF.regular, marginTop: 4, fontSize: 13 }}>
+                              No messages yet
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    </Card>
+                  </Pressable>
+                </ReanimatedSwipeable>
+              );
+            })}
           </View>
         ) : null}
 
@@ -280,6 +435,25 @@ export function ConversationsListScreen() {
           </Card>
         ) : null}
       </ScrollView>
+
+      <Modal visible={deleteTarget != null} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]}>
+            <Text style={{ color: t.text, fontFamily: FF.bold, fontSize: 18 }}>Delete conversation?</Text>
+            <Text style={{ color: t.textMuted, fontFamily: FF.regular, marginTop: 10, lineHeight: 20 }}>
+              This removes the thread and its messages for you and {deleteTarget?.otherUser.displayName ?? 'this person'}.
+            </Text>
+            <View style={styles.modalActions}>
+              <Button variant="ghost" onPress={() => setDeleteTarget(null)} disabled={deleting}>
+                Cancel
+              </Button>
+              <Button variant="primary" onPress={() => void confirmDelete()} loading={deleting}>
+                Delete
+              </Button>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }
@@ -289,10 +463,52 @@ const styles = StyleSheet.create({
   center: { paddingVertical: 24, alignItems: 'center' },
   title: { fontSize: 26, marginBottom: 6 },
   sub: { fontSize: 15, lineHeight: 22, marginBottom: 20 },
-  section: { marginBottom: 20 },
-  sectionTitle: { fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 10 },
+  section: { marginBottom: 16 },
+  sectionTitleStatic: { fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 10 },
+  dropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 8,
+  },
+  dropdownBody: { paddingBottom: 4 },
+  sectionTitle: { fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase' },
   card: { padding: 14, borderRadius: 14, marginBottom: 10 },
   rowCard: { padding: 14, borderRadius: 14, marginBottom: 10 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  convRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  convRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  convTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  logRow: {
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  swipeSide: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 76,
+    marginBottom: 10,
+    borderRadius: 14,
+  },
+  swipeBtn: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+    marginTop: 20,
+  },
 });

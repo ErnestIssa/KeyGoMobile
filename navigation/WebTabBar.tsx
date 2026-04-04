@@ -9,6 +9,7 @@ import type { LayoutChangeEvent } from 'react-native';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
+  interpolate,
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
@@ -59,6 +60,16 @@ function nestedRouteName(route: Route<string>): string | undefined {
   if (!st || st.routes == null || st.index == null) return route.name;
   const r = st.routes[st.index];
   return r?.name;
+}
+
+/** Chat thread (composer) — hide the floating tab bar so it doesn’t sit over the input. */
+function isChatThreadOpen(state: BottomTabBarProps['state']): boolean {
+  const chat = state.routes.find((r) => r.name === 'Chat');
+  if (!chat || !('state' in chat) || !chat.state) return false;
+  const inner = chat.state as NavigationState;
+  if (inner.index == null || !inner.routes?.length) return false;
+  const cur = inner.routes[inner.index];
+  return cur?.name === 'ChatThread';
 }
 
 /** Must match AppTabs screen order — used so only one tab is “active” at a time. */
@@ -236,6 +247,9 @@ function CenterActionTab({
   );
 }
 
+const TAB_HIDE_MS = 420;
+const TAB_HIDE_EASING = Easing.out(Easing.cubic);
+
 export function WebTabBar({ state, navigation }: BottomTabBarProps) {
   const { t, theme } = useTheme();
   const insets = useSafeAreaInsets();
@@ -244,6 +258,20 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
   const isOwner = user?.role === 'owner';
   const navInteractionLockRef = useRef(false);
   const onTabBarHeightChange = useContext(BottomTabBarHeightCallbackContext);
+  const chatThreadOpen = isChatThreadOpen(state);
+  const hidePill = useSharedValue(chatThreadOpen ? 1 : 0);
+
+  useEffect(() => {
+    hidePill.value = withTiming(chatThreadOpen ? 1 : 0, {
+      duration: TAB_HIDE_MS,
+      easing: TAB_HIDE_EASING,
+    });
+  }, [chatThreadOpen, hidePill]);
+
+  const pillAnim = useAnimatedStyle(() => ({
+    opacity: interpolate(hidePill.value, [0, 1], [1, 0]),
+    transform: [{ translateY: interpolate(hidePill.value, [0, 1], [0, 36]) }],
+  }));
 
   const idxAction = routeIndexForName(state, 'Action');
   const actionRoute = idxAction >= 0 ? state.routes[idxAction] : undefined;
@@ -356,7 +384,7 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View
-      pointerEvents="box-none"
+      pointerEvents={chatThreadOpen ? 'none' : 'box-none'}
       onLayout={onLayout}
       style={[
         styles.floatOuter,
@@ -366,7 +394,7 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
         },
       ]}
     >
-      <View style={[styles.floatShadow, tabShadow]}>{roundedShell(barContent)}</View>
+      <Animated.View style={[pillAnim, styles.floatShadow, tabShadow]}>{roundedShell(barContent)}</Animated.View>
     </View>
   );
 }

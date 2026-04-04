@@ -274,6 +274,8 @@ export type ChatUserPreview = {
   avatarUrl?: string;
 };
 
+export type LastMessageStatus = 'sent' | 'delivered' | 'read' | 'received';
+
 export type ConversationListItem = {
   id: string;
   participants: string[];
@@ -283,7 +285,12 @@ export type ConversationListItem = {
   updatedAt: string;
   lastMessageAt?: string;
   lastMessagePreview?: string;
+  lastMessageSenderId?: string;
+  /** Server-computed status for the latest message in this thread */
+  lastMessageStatus?: LastMessageStatus;
 };
+
+export type MessageDeliveryStatus = 'sent' | 'delivered' | 'read';
 
 export type ChatMessage = {
   id: string;
@@ -295,6 +302,10 @@ export type ChatMessage = {
   /** Full name for initials when avatar image is missing */
   senderName?: string;
   senderAvatarUrl?: string;
+  /** Inbound: true if this message is still “new” vs your read cursor */
+  isUnread?: boolean;
+  /** Outgoing: sent / delivered / read */
+  deliveryStatus?: MessageDeliveryStatus;
 };
 
 export async function createConversation(participantId: string): Promise<{
@@ -308,6 +319,24 @@ export async function createConversation(participantId: string): Promise<{
 
 export async function listConversations(): Promise<{ conversations: ConversationListItem[] }> {
   return request('/conversations', { method: 'GET' });
+}
+
+export async function deleteConversation(conversationId: string): Promise<void> {
+  await request(`/conversations/${encodeURIComponent(conversationId)}`, { method: 'DELETE' });
+}
+
+export type PublicUserProfile = {
+  id: string;
+  name: string;
+  displayName?: string;
+  role: string;
+  avatarUrl?: string;
+  ratingAverage?: number;
+};
+
+/** GET /api/users/public/:userId — other user’s profile (no email). */
+export async function getPublicUser(userId: string): Promise<{ user: PublicUserProfile }> {
+  return request(`/users/public/${encodeURIComponent(userId)}`, { method: 'GET' });
 }
 
 export async function postChatMessage(conversationId: string, text: string): Promise<{ message: ChatMessage }> {
@@ -336,6 +365,14 @@ export async function listChatMatches(): Promise<{
   return request('/chat/matches', { method: 'GET' });
 }
 
+export type ChatActivityLogRow = {
+  id: string;
+  tripId: string;
+  at: string;
+  who: string;
+  summary: string;
+};
+
 export type ChatRecentTripRow = {
   id: string;
   status: string;
@@ -348,6 +385,9 @@ export type ChatRecentTripRow = {
   driver?: { name?: string };
 };
 
-export async function listChatRecentTrips(): Promise<{ trips: ChatRecentTripRow[] }> {
+export async function listChatRecentTrips(): Promise<{
+  trips: ChatRecentTripRow[];
+  activities?: ChatActivityLogRow[];
+}> {
   return request('/chat/recent-trips', { method: 'GET' });
 }
