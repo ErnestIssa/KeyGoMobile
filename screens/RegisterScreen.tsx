@@ -10,7 +10,7 @@ import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation/types';
-import { ApiError } from '../services/api';
+import { friendlyErrorMessage } from '../lib/userFacingError';
 import { hapticError, hapticLight, hapticSelection } from '../services/haptics';
 import { playNotify } from '../services/sounds';
 import { useTheme } from '../theme/ThemeContext';
@@ -22,7 +22,8 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Register'>;
 export function RegisterScreen({ navigation }: Props) {
   const { signUp } = useAuth();
   const { t } = useTheme();
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'owner' | 'driver'>('driver');
@@ -34,7 +35,8 @@ export function RegisterScreen({ navigation }: Props) {
     setLoading(true);
     try {
       await signUp({
-        name: name.trim(),
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
         email: email.trim(),
         password,
         role,
@@ -42,7 +44,7 @@ export function RegisterScreen({ navigation }: Props) {
     } catch (e) {
       void hapticError();
       void playNotify();
-      setError(e instanceof ApiError ? e.message : 'Registration failed');
+      setError(friendlyErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -71,8 +73,25 @@ export function RegisterScreen({ navigation }: Props) {
 
           <Animated.View entering={FadeInDown.delay(120).duration(360)} style={styles.formWrap}>
             <Card style={styles.authCard}>
-              <Text style={[styles.label, { color: t.textMuted, fontFamily: FF.semibold }]}>Name</Text>
-              <Input value={name} onChangeText={setName} autoCapitalize="words" textContentType="name" />
+              <Text style={[styles.label, { color: t.textMuted, fontFamily: FF.semibold }]}>First name</Text>
+              <Input
+                value={firstName}
+                onChangeText={setFirstName}
+                autoCapitalize="words"
+                textContentType="givenName"
+                autoComplete="name-given"
+              />
+
+              <View style={styles.fieldGap} />
+
+              <Text style={[styles.label, { color: t.textMuted, fontFamily: FF.semibold }]}>Last name</Text>
+              <Input
+                value={lastName}
+                onChangeText={setLastName}
+                autoCapitalize="words"
+                textContentType="familyName"
+                autoComplete="name-family"
+              />
 
               <View style={styles.fieldGap} />
 
@@ -144,7 +163,7 @@ export function RegisterScreen({ navigation }: Props) {
               </View>
 
               {error ? (
-                <Text style={[styles.error, { color: t.danger, fontFamily: FF.semibold }]} accessibilityLiveRegion="polite">
+                <Text style={[styles.error, { color: t.textMuted, fontFamily: FF.semibold }]} accessibilityLiveRegion="polite">
                   {error}
                 </Text>
               ) : null}

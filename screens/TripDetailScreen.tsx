@@ -8,9 +8,11 @@ import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 import { useSyncGlobalLoading } from '../context/LoadingOverlayContext';
 import { hapticError, hapticMedium, hapticSuccess } from '../services/haptics';
-import { acceptTrip, ApiError, completeTrip, getTrip, type Trip } from '../services/api';
+import { friendlyErrorMessage } from '../lib/userFacingError';
+import { acceptTrip, completeTrip, getTrip, type Trip } from '../services/api';
 import { playNotify, playSuccess } from '../services/sounds';
 import { useTheme } from '../theme/ThemeContext';
+import { FF } from '../theme/fonts';
 
 type TripDetailNav = {
   TripDetail: { id: string };
@@ -37,7 +39,7 @@ export function TripDetailScreen({ route, navigation }: Props) {
         const res = await getTrip(id);
         if (!cancelled) setTrip(res.trip);
       } catch (e) {
-        if (!cancelled) setError(e instanceof ApiError ? e.message : 'Could not load trip');
+        if (!cancelled) setError(friendlyErrorMessage(e));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -70,7 +72,7 @@ export function TripDetailScreen({ route, navigation }: Props) {
             } catch (e) {
               void hapticError();
               void playNotify();
-              Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not accept trip');
+              Alert.alert('Something went wrong', friendlyErrorMessage(e));
             }
           })();
         },
@@ -95,7 +97,7 @@ export function TripDetailScreen({ route, navigation }: Props) {
             } catch (e) {
               void hapticError();
               void playNotify();
-              Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not complete trip');
+              Alert.alert('Something went wrong', friendlyErrorMessage(e));
             }
           })();
         },
@@ -108,8 +110,8 @@ export function TripDetailScreen({ route, navigation }: Props) {
       {loading ? (
         <View style={{ minHeight: 240 }} accessibilityElementsHidden />
       ) : error ? (
-        <Card style={{ borderColor: t.danger }}>
-          <Text style={{ color: t.danger, fontWeight: '700' }}>{error}</Text>
+        <Card style={{ borderColor: t.border, backgroundColor: t.bgSubtle }}>
+          <Text style={{ color: t.textMuted, fontFamily: FF.regular, fontSize: 15 }}>{error}</Text>
         </Card>
       ) : !trip ? (
         <Card>

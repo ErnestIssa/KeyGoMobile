@@ -16,7 +16,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Animated, NativeModules, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, NativeModules, Pressable, StyleSheet, View } from 'react-native';
 import { IconKeyGoLogo } from '../components/icons/navIcons';
 import { MapHomeControls, type MapVisualMode } from '../components/map/MapHomeControls';
 import { MapPlaceholder } from '../components/map/MapPlaceholder';
@@ -27,8 +27,6 @@ import type { MapboxCameraHandle } from '../lib/map/mapboxCamera';
 import { TRACKABLE_USER_ID } from '../lib/map/tracking';
 import { playMarkerTap } from '../services/sounds';
 import { useTheme } from '../theme/ThemeContext';
-import { FF } from '../theme/fonts';
-
 /** Mapbox `centerCoordinate` / `PointAnnotation`: `[longitude, latitude]` — Stockholm default. */
 const STOCKHOLM_CENTER: [number, number] = [18.0686, 59.3293];
 const DEFAULT_ZOOM = 12;
@@ -201,22 +199,6 @@ function ExpoGoHomeBody({
         vehicle={selectedVehicle}
         onClose={() => fleet.selectVehicle(null)}
       />
-      {__DEV__ ? (
-        <View style={styles.fallbackBanner} pointerEvents="none">
-          <Text style={[styles.fallbackTitle, { fontFamily: FF.bold }]}>Map preview (Expo Go)</Text>
-          <Text style={[styles.fallbackBody, { fontFamily: FF.regular }]}>
-            {fleet.vehicles.length} vehicles (API) + your GPS. Map style: {mapVisualMode}
-            {trafficEnabled ? ' + traffic preview' : ''}. Real Mapbox:{' '}
-            <Text style={{ fontFamily: FF.semibold }}>npx expo run:ios</Text> /{' '}
-            <Text style={{ fontFamily: FF.semibold }}>npx expo run:android</Text>
-          </Text>
-          {coordinate ? (
-            <Text style={[styles.coords, { fontFamily: FF.regular }]} numberOfLines={1}>
-              You: {coordinate[1].toFixed(5)}, {coordinate[0].toFixed(5)}
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -459,29 +441,5 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A84FF',
     borderWidth: 2.5,
     borderColor: '#FFFFFF',
-  },
-  fallbackBanner: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 120,
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-  },
-  fallbackTitle: {
-    fontSize: 15,
-    marginBottom: 6,
-    color: '#fff',
-  },
-  fallbackBody: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: 'rgba(255,255,255,0.85)',
-  },
-  coords: {
-    marginTop: 8,
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.7)',
   },
 });

@@ -24,10 +24,23 @@ export type ProfileStackParamList = {
   Section: { title: string; subtitle: string };
 };
 
+export type ChatStackParamList = {
+  ConversationsList: undefined;
+  ChatThread: {
+    conversationId: string;
+    /** Short label e.g. "Jane S." */
+    peerDisplayName?: string;
+    peerAvatarUrl?: string;
+    /** Full name (for avatar initials) */
+    peerName?: string;
+    otherUserName?: string;
+  };
+};
+
 export type AppTabParamList = {
   Home: undefined;
   MyTrips: NavigatorScreenParams<MyTripsStackParamList>;
   Action: NavigatorScreenParams<ActionStackParamList>;
-  Activity: undefined;
+  Chat: NavigatorScreenParams<ChatStackParamList>;
   Profile: NavigatorScreenParams<ProfileStackParamList>;
 };

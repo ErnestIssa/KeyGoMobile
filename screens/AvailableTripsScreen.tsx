@@ -9,8 +9,10 @@ import { Card } from '../components/ui/Card';
 import { useSyncGlobalLoading } from '../context/LoadingOverlayContext';
 import type { ActionStackParamList } from '../navigation/types';
 import { hapticLight } from '../services/haptics';
-import { ApiError, getJobs, type Trip } from '../services/api';
+import { friendlyErrorMessage } from '../lib/userFacingError';
+import { getJobs, type Trip } from '../services/api';
 import { useTheme } from '../theme/ThemeContext';
+import { FF } from '../theme/fonts';
 
 function scrollContentPad(scrollPad: number, topInset: number) {
   return {
@@ -41,7 +43,7 @@ export function AvailableTripsScreen() {
         const res = await getJobs();
         if (!cancelled) setTrips(res);
       } catch (e) {
-        if (!cancelled) setError(e instanceof ApiError ? e.message : 'Could not load trips');
+        if (!cancelled) setError(friendlyErrorMessage(e));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -97,8 +99,8 @@ export function AvailableTripsScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <ListHeader />
-          <Card style={{ borderColor: t.danger, backgroundColor: 'transparent' }}>
-            <Text style={{ color: t.danger, fontWeight: '700' }}>{error}</Text>
+          <Card style={{ borderColor: t.border, backgroundColor: t.bgSubtle }}>
+            <Text style={{ color: t.textMuted, fontFamily: FF.regular, fontSize: 15 }}>{error}</Text>
           </Card>
         </ScrollView>
       </ScreenContainer>

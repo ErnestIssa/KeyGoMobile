@@ -12,8 +12,10 @@ import { useContentTopInset, useFloatingTabBarBottomInset } from '../navigation/
 import type { AppTabParamList, MyTripsStackParamList } from '../navigation/types';
 import { useAuth } from '../context/AuthContext';
 import { hapticLight } from '../services/haptics';
-import { ApiError, listMyTrips, type Trip } from '../services/api';
+import { friendlyErrorMessage } from '../lib/userFacingError';
+import { listMyTrips, type Trip } from '../services/api';
 import { useTheme } from '../theme/ThemeContext';
+import { FF } from '../theme/fonts';
 
 function scrollContentPad(scrollPad: number, topInset: number) {
   return {
@@ -46,7 +48,7 @@ export function MyTripsScreen() {
         const res = await listMyTrips();
         if (!cancelled) setTrips(res.trips);
       } catch (e) {
-        if (!cancelled) setError(e instanceof ApiError ? e.message : 'Could not load trips');
+        if (!cancelled) setError(friendlyErrorMessage(e));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -92,8 +94,8 @@ export function MyTripsScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <ListHeader />
-          <Card style={{ borderColor: t.danger }}>
-            <Text style={{ color: t.danger, fontWeight: '700' }}>{error}</Text>
+          <Card style={{ borderColor: t.border, backgroundColor: t.bgSubtle }}>
+            <Text style={{ color: t.textMuted, fontFamily: FF.regular, fontSize: 15 }}>{error}</Text>
           </Card>
         </ScrollView>
       </ScreenContainer>

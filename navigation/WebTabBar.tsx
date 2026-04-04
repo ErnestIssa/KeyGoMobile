@@ -17,13 +17,14 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  IconActivity,
+  IconChat,
   IconHome,
   IconKeyGoLogo,
   IconMyTrips,
   IconProfile,
 } from '../components/icons/navIcons';
 import { useAuth } from '../context/AuthContext';
+import { useChatUnread } from '../context/ChatUnreadContext';
 import { hapticSelection } from '../services/haptics';
 import { useTheme } from '../theme/ThemeContext';
 import { FF } from '../theme/fonts';
@@ -64,7 +65,7 @@ function nestedRouteName(route: Route<string>): string | undefined {
 const TAB_HOME = 0;
 const TAB_MY_TRIPS = 1;
 const TAB_ACTION = 2;
-const TAB_ACTIVITY = 3;
+const TAB_CHAT = 3;
 const TAB_PROFILE = 4;
 
 type TabBarItemProps = {
@@ -77,6 +78,8 @@ type TabBarItemProps = {
   mutedColor: string;
   softBg: string;
   navInteractionLockRef: MutableRefObject<boolean>;
+  badgeCount?: number;
+  badgeBgColor?: string;
 };
 
 /** Aligned with AppTabs tab scene fade duration */
@@ -96,6 +99,8 @@ function TabBarItem({
   mutedColor,
   softBg,
   navInteractionLockRef,
+  badgeCount,
+  badgeBgColor,
 }: TabBarItemProps) {
   const scale = useSharedValue(1);
   const highlight = useSharedValue(active ? 1 : 0);
@@ -137,7 +142,16 @@ function TabBarItem({
       style={[styles.tabItemOuter, { flex }, anim]}
     >
       <Animated.View style={[styles.tabItemInner, innerBg]}>
-        <View style={styles.iconWrap}>{icon}</View>
+        <View style={styles.iconWrap}>
+          {icon}
+          {badgeCount != null && badgeCount > 0 ? (
+            <View style={[styles.badge, { backgroundColor: badgeBgColor ?? brandColor }]}>
+              <Text style={[styles.badgeText, { fontFamily: FF.bold }]}>
+                {badgeCount > 99 ? '99+' : String(badgeCount)}
+              </Text>
+            </View>
+          ) : null}
+        </View>
         <Animated.Text numberOfLines={1} style={[styles.tabLabel, labelStyle, { fontFamily: FF.semibold }]}>
           {label}
         </Animated.Text>
@@ -226,6 +240,7 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
   const { t, theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
+  const { unreadCount } = useChatUnread();
   const isOwner = user?.role === 'owner';
   const navInteractionLockRef = useRef(false);
   const onTabBarHeightChange = useContext(BottomTabBarHeightCallbackContext);
@@ -240,7 +255,7 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
   const centerActive = isOwner
     ? idx === TAB_ACTION && actionNested === 'Create'
     : idx === TAB_ACTION && actionNested === 'Browse';
-  const activityActive = idx === TAB_ACTIVITY;
+  const chatActive = idx === TAB_CHAT;
   const profileActive = idx === TAB_PROFILE;
 
   const centerLabel = isOwner ? 'Create' : 'Browse';
@@ -286,14 +301,16 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
       />
 
       <TabBarItem
-        active={activityActive}
-        label="Activity"
+        active={chatActive}
+        label="Chat"
         brandColor={t.brand}
         mutedColor={t.textMuted}
         softBg={t.brandSoft}
         navInteractionLockRef={navInteractionLockRef}
-        icon={<IconActivity size={ICON_TAB} color={activityActive ? t.brand : t.textMuted} strokeWidth={STROKE_TAB} />}
-        onPress={() => navigation.navigate('Activity')}
+        badgeCount={unreadCount}
+        badgeBgColor={t.accent}
+        icon={<IconChat size={ICON_TAB} color={chatActive ? t.brand : t.textMuted} strokeWidth={STROKE_TAB} />}
+        onPress={() => navigation.navigate('Chat', { screen: 'ConversationsList' })}
       />
       <TabBarItem
         active={profileActive}
@@ -412,6 +429,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 44,
     flexShrink: 0,
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: 2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 5,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    lineHeight: 12,
   },
   tabLabel: {
     fontSize: 10,

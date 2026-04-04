@@ -10,7 +10,7 @@ import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation/types';
-import { ApiError } from '../services/api';
+import { friendlyErrorMessage } from '../lib/userFacingError';
 import { hapticError, hapticLight } from '../services/haptics';
 import { playNotify } from '../services/sounds';
 import { useTheme } from '../theme/ThemeContext';
@@ -34,7 +34,7 @@ export function LoginScreen({ navigation }: Props) {
     } catch (e) {
       void hapticError();
       void playNotify();
-      setError(e instanceof ApiError ? e.message : 'Sign in failed');
+      setError(friendlyErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -83,7 +83,7 @@ export function LoginScreen({ navigation }: Props) {
               />
 
               {error ? (
-                <Text style={[styles.error, { color: t.danger, fontFamily: FF.semibold }]} accessibilityLiveRegion="polite">
+                <Text style={[styles.error, { color: t.textMuted, fontFamily: FF.semibold }]} accessibilityLiveRegion="polite">
                   {error}
                 </Text>
               ) : null}

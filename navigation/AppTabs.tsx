@@ -1,8 +1,9 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Easing, View } from 'react-native';
+import { ChatUnreadProvider } from '../context/ChatUnreadContext';
 import { VehicleFleetProvider } from '../context/VehicleFleetContext';
 import { HomeScreen } from '../screens/HomeScreen';
-import { ActivityScreen } from '../screens/ActivityScreen';
+import { ChatStack } from './ChatStack';
 import { ProfileStack } from './ProfileStack';
 import type { AppTabParamList } from './types';
 import { WebTabBar } from './WebTabBar';
@@ -13,7 +14,8 @@ const Tab = createBottomTabNavigator<AppTabParamList>();
 
 export function AppTabs() {
   return (
-    <VehicleFleetProvider>
+    <ChatUnreadProvider>
+      <VehicleFleetProvider>
     <Tab.Navigator
       /** Tab bar uses its own `useSafeAreaInsets()` for the pill; don’t double-stack system insets on the bar slot. */
       safeAreaInsets={{ top: 0, right: 0, bottom: 0, left: 0 }}
@@ -44,9 +46,10 @@ export function AppTabs() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="MyTrips" component={MyTripsStack} />
       <Tab.Screen name="Action" component={ActionStack} />
-      <Tab.Screen name="Activity" component={ActivityScreen} />
+      <Tab.Screen name="Chat" component={ChatStack} />
       <Tab.Screen name="Profile" component={ProfileStack} />
     </Tab.Navigator>
-    </VehicleFleetProvider>
+      </VehicleFleetProvider>
+    </ChatUnreadProvider>
   );
 }

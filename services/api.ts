@@ -112,7 +112,8 @@ export async function login(email: string, password: string): Promise<AuthRespon
 }
 
 export type RegisterPayload = {
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   password: string;
   role: 'owner' | 'driver';
@@ -261,4 +262,92 @@ export async function updateTripVehicleLocation(
     method: 'PATCH',
     body: JSON.stringify(body),
   });
+}
+
+/** --- Chat (matched users only; see KeyGo_Server chat routes) --- */
+
+export type ChatUserPreview = {
+  id: string;
+  name: string;
+  displayName?: string;
+  email?: string;
+  avatarUrl?: string;
+};
+
+export type ConversationListItem = {
+  id: string;
+  participants: string[];
+  otherUser: ChatUserPreview;
+  otherUserId: string;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt?: string;
+  lastMessagePreview?: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  text: string;
+  createdAt: string;
+  senderDisplayName?: string;
+  /** Full name for initials when avatar image is missing */
+  senderName?: string;
+  senderAvatarUrl?: string;
+};
+
+export async function createConversation(participantId: string): Promise<{
+  conversation: { id: string; participants: string[]; createdAt: string; updatedAt: string };
+}> {
+  return request('/conversations', {
+    method: 'POST',
+    body: JSON.stringify({ participantId }),
+  });
+}
+
+export async function listConversations(): Promise<{ conversations: ConversationListItem[] }> {
+  return request('/conversations', { method: 'GET' });
+}
+
+export async function postChatMessage(conversationId: string, text: string): Promise<{ message: ChatMessage }> {
+  return request('/messages', {
+    method: 'POST',
+    body: JSON.stringify({ conversationId, text }),
+  });
+}
+
+export async function listChatMessages(conversationId: string): Promise<{ messages: ChatMessage[] }> {
+  return request(`/messages/${encodeURIComponent(conversationId)}`, { method: 'GET' });
+}
+
+export async function markConversationRead(conversationId: string): Promise<void> {
+  await request(`/conversations/${encodeURIComponent(conversationId)}/read`, { method: 'POST' });
+}
+
+export async function getChatUnreadCount(): Promise<number> {
+  const { total } = await request<{ total: number }>('/chat/unread-count', { method: 'GET' });
+  return total;
+}
+
+export async function listChatMatches(): Promise<{
+  matches: { user: ChatUserPreview; conversationId: string | null }[];
+}> {
+  return request('/chat/matches', { method: 'GET' });
+}
+
+export type ChatRecentTripRow = {
+  id: string;
+  status: string;
+  pickupLocation: string;
+  dropoffLocation: string;
+  updatedAt: string;
+  createdAt: string;
+  paymentAmount: number;
+  owner?: { name?: string };
+  driver?: { name?: string };
+};
+
+export async function listChatRecentTrips(): Promise<{ trips: ChatRecentTripRow[] }> {
+  return request('/chat/recent-trips', { method: 'GET' });
 }

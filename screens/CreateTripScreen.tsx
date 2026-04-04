@@ -9,7 +9,8 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import { useTheme } from '../theme/ThemeContext';
 import { hapticError, hapticSuccess } from '../services/haptics';
-import { ApiError, createTrip } from '../services/api';
+import { friendlyErrorMessage } from '../lib/userFacingError';
+import { createTrip } from '../services/api';
 import { playNotify, playSuccess } from '../services/sounds';
 
 export function CreateTripScreen() {
@@ -41,7 +42,7 @@ export function CreateTripScreen() {
     } catch (e) {
       void hapticError();
       void playNotify();
-      setError(e instanceof ApiError ? e.message : 'Could not create trip');
+      setError(friendlyErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -83,7 +84,7 @@ export function CreateTripScreen() {
             <Text style={[styles.label, { color: t.textMuted }]}>Payment amount</Text>
             <Input value={paymentAmount} onChangeText={setPaymentAmount} keyboardType="numeric" placeholder="0" />
 
-            {error ? <Text style={[styles.error, { color: t.danger }]}>{error}</Text> : null}
+            {error ? <Text style={[styles.error, { color: t.textMuted }]}>{error}</Text> : null}
 
             <View style={{ height: 14 }} />
             <Button onPress={onSubmit} disabled={loading} loading={loading}>
