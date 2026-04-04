@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { ChatAvatar } from '../../components/chat/ChatAvatar';
 import { Button } from '../../components/ui/Button';
@@ -97,7 +98,16 @@ function CollapsibleSection({
         <Text style={[styles.sectionTitle, { color: t.canvasTextMuted, fontFamily: FF.semibold }]}>{title}</Text>
         <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={t.textMuted} />
       </Pressable>
-      {expanded ? <View style={styles.dropdownBody}>{children}</View> : null}
+      {expanded ? (
+        <Animated.View
+          entering={FadeIn.duration(560).easing(Easing.out(Easing.cubic))}
+          exiting={FadeOut.duration(420).easing(Easing.in(Easing.cubic))}
+          layout={LinearTransition.duration(480).easing(Easing.out(Easing.cubic))}
+          style={styles.dropdownBody}
+        >
+          {children}
+        </Animated.View>
+      ) : null}
     </View>
   );
 }

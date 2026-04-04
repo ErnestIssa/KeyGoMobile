@@ -3,6 +3,7 @@
     "name": "KeyGoMobile",
     "slug": "KeyGoMobile",
     "version": "1.0.0",
+    "scheme": "keygo",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -37,6 +38,7 @@
     },
     "plugins": [
       "expo-font",
+      "expo-notifications",
       "@rnmapbox/maps",
       [
         "expo-location",

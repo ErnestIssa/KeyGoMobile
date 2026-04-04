@@ -11,6 +11,8 @@ import {
   NavigationContainer,
   type Theme as NavTheme,
 } from '@react-navigation/native';
+import { ChatNotificationBootstrap } from './components/ChatNotificationBootstrap';
+import { navigationRef } from './navigation/navigationRef';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -83,7 +85,8 @@ function ThemedApp() {
 
   return (
     <View style={[styles.root, { backgroundColor: t.bgPage }]}>
-      <NavigationContainer theme={navTheme(theme)}>
+      <NavigationContainer ref={navigationRef} theme={navTheme(theme)}>
+        <ChatNotificationBootstrap />
         <RootNavigator />
       </NavigationContainer>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} translucent />

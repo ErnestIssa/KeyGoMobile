@@ -346,8 +346,19 @@ export async function postChatMessage(conversationId: string, text: string): Pro
   });
 }
 
-export async function listChatMessages(conversationId: string): Promise<{ messages: ChatMessage[] }> {
+export async function listChatMessages(conversationId: string): Promise<{
+  messages: ChatMessage[];
+  peerLastReadAt?: string | null;
+}> {
   return request(`/messages/${encodeURIComponent(conversationId)}`, { method: 'GET' });
+}
+
+/** POST /api/users/push-token — Expo push token + notification opt-in. */
+export async function registerPushToken(expoPushToken: string, notificationsEnabled: boolean): Promise<void> {
+  await request('/users/push-token', {
+    method: 'POST',
+    body: JSON.stringify({ expoPushToken, notificationsEnabled }),
+  });
 }
 
 export async function markConversationRead(conversationId: string): Promise<void> {
