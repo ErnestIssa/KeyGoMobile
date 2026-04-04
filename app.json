@@ -13,7 +13,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.KeyGoMobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,13 +25,31 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.anonymous.KeyGoMobile"
     },
     "web": {
       "favicon": "./assets/logos/favicon.png"
     },
     "plugins": [
-      "expo-font"
-    ]
+      "expo-font",
+      "@rnmapbox/maps",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow KeyGo to use your location to show your position on the map."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b11ab0c5-3cd5-4fe5-a468-dd63d8a9353d"
+      }
+    },
+    "owner": "ernie123issa"
   }
 }
