@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  fetchBootstrap,
   getProfile,
   login as apiLogin,
   logout as apiLogout,
@@ -22,6 +23,8 @@ type AuthContextValue = {
   user: User | null;
   token: string | null;
   ready: boolean;
+  /** Public stats from GET /api/public/bootstrap (splash / marketing). */
+  bootstrapStats: { userCount: number; tripCount: number } | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (data: RegisterPayload) => Promise<void>;
   signOut: () => Promise<void>;
@@ -36,15 +39,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [bootstrapStats, setBootstrapStats] = useState<{ userCount: number; tripCount: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    loadStoredAuth().then(({ token: t, user: u }) => {
+    void (async () => {
+      const [stored, boot] = await Promise.all([
+        loadStoredAuth(),
+        fetchBootstrap().catch(() => ({ userCount: 0, tripCount: 0, tagline: '' })),
+      ]);
       if (cancelled) return;
-      setToken(t);
-      setUser(u);
+      setBootstrapStats({ userCount: boot.userCount, tripCount: boot.tripCount });
+      setToken(stored.token);
+      setUser(stored.user);
       setReady(true);
-    });
+    })();
     return () => {
       cancelled = true;
     };
@@ -97,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       token,
       ready,
+      bootstrapStats,
       signIn,
       signUp,
       signOut,
@@ -104,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateUser,
       switchRole,
     }),
-    [user, token, ready, signIn, signUp, signOut, refreshProfile, updateUser, switchRole]
+    [user, token, ready, bootstrapStats, signIn, signUp, signOut, refreshProfile, updateUser, switchRole]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

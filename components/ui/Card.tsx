@@ -1,9 +1,9 @@
 import { type ReactNode } from 'react';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { radii } from '../../theme/tokens';
 import { useTheme } from '../../theme/ThemeContext';
 
-export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
+export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const { t, theme } = useTheme();
   const shadow = theme === 'dark' ? styles.shadowDark : styles.shadowLight;
 

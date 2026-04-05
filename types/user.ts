@@ -1,3 +1,7 @@
+import type { AppSettings, UserAddress } from './appSettings';
+
+export type AccountKind = 'individual' | 'organization';
+
 export type User = {
   id: string;
   email: string;
@@ -13,4 +17,9 @@ export type User = {
   ratingAverage?: number;
   /** Collected at signup; may be omitted for legacy accounts */
   phone?: string;
+  accountKind?: AccountKind;
+  organizationName?: string;
+  organizationType?: string;
+  address?: UserAddress;
+  appSettings?: AppSettings;
 };

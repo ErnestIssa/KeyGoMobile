@@ -6,13 +6,13 @@ import { AuthStack } from './AuthStack';
 import { AppTabs } from './AppTabs';
 
 export function RootNavigator() {
-  const { user, ready } = useAuth();
+  const { user, ready, bootstrapStats } = useAuth();
   const { t, ready: themeReady } = useTheme();
 
   if (!ready || !themeReady) {
     return (
       <View style={[styles.boot, { backgroundColor: t.bgPage }]}>
-        <BrandedLoading fullscreen />
+        <BrandedLoading fullscreen stats={bootstrapStats} />
       </View>
     );
   }

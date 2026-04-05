@@ -106,6 +106,17 @@ export function LoginScreen({ navigation }: Props) {
                 <Text style={[styles.footerMuted, { color: t.textMuted, fontFamily: FF.regular }]}>No account?</Text>
                 <Text style={[styles.footerAction, { color: t.brand, fontFamily: FF.bold }]}> Create one</Text>
               </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [styles.footerTap, styles.bizTap, pressed && { opacity: 0.75 }]}
+                onPress={() => {
+                  void hapticLight();
+                  navigation.navigate('Register', { preferBusiness: true });
+                }}
+              >
+                <Text style={[styles.footerMuted, { color: t.textMuted, fontFamily: FF.regular }]}>Dealer or fleet?</Text>
+                <Text style={[styles.footerAction, { color: t.brand, fontFamily: FF.bold }]}> Organization sign-up</Text>
+              </Pressable>
             </Card>
           </Animated.View>
         </View>
@@ -171,6 +182,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexWrap: 'wrap',
     paddingVertical: 4,
+  },
+  bizTap: {
+    marginTop: 10,
   },
   footerMuted: {
     fontSize: 15,

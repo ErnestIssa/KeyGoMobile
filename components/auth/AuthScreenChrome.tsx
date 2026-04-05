@@ -6,7 +6,8 @@ import type { AuthStackParamList } from '../../navigation/types';
 
 type Props = {
   navigation: { navigate: (name: keyof AuthStackParamList) => void };
-  variant: 'login' | 'register';
+  /** `registerWizard` — theme toggle only (no back link; sign-in from Login). */
+  variant: 'login' | 'register' | 'registerWizard';
 };
 
 export function AuthScreenChrome({ navigation, variant }: Props) {

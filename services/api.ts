@@ -4,9 +4,11 @@
  */
 
 import { clearAuth, getToken, saveAuth } from './authStorage';
+import type { PatchAppSettings, UserAddress } from '../types/appSettings';
 import type { User } from '../types/user';
 
 export type { User } from '../types/user';
+export type { AppSettings, UserAddress } from '../types/appSettings';
 
 export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
 
@@ -118,6 +120,9 @@ export type RegisterPayload = {
   password: string;
   phone: string;
   role: 'owner' | 'driver';
+  accountKind?: 'individual' | 'organization';
+  organizationName?: string;
+  organizationType?: string;
 };
 
 /** POST /api/auth/register */
@@ -177,6 +182,33 @@ export async function getJobs(init?: RequestInit): Promise<Trip[]> {
 
 export async function getProfile(): Promise<{ user: User }> {
   return request<{ user: User }>('/users/profile', { method: 'GET' });
+}
+
+export type BootstrapPayload = {
+  userCount: number;
+  tripCount: number;
+  tagline: string;
+};
+
+/** GET /api/public/bootstrap — counts for splash (no auth). */
+export async function fetchBootstrap(): Promise<BootstrapPayload> {
+  return request<BootstrapPayload>('/public/bootstrap', { method: 'GET' });
+}
+
+/** PATCH /api/users/settings — merge app settings (caller should `updateUser` in AuthContext). */
+export async function patchUserSettings(patch: PatchAppSettings): Promise<{ user: User }> {
+  return request<{ user: User }>('/users/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+/** PATCH /api/users/address */
+export async function patchUserAddress(patch: Partial<UserAddress>): Promise<{ user: User }> {
+  return request<{ user: User }>('/users/address', {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
 }
 
 /** PATCH /api/users/role — `{ role: "owner" | "driver" }`; returns new JWT + user */

@@ -2,7 +2,8 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export type AuthStackParamList = {
   Login: undefined;
-  Register: undefined;
+  /** `preferBusiness` opens organization path first. */
+  Register: { preferBusiness?: boolean } | undefined;
 };
 
 export type TripDetailParams = { id: string };
@@ -23,6 +24,16 @@ export type ProfileStackParamList = {
   ProfileHome: undefined;
   Section: { title: string; subtitle: string };
   UserProfile: { userId: string };
+  SettingsHome: undefined;
+  SettingsManageAccount: undefined;
+  SettingsPrivacy: undefined;
+  SettingsAddress: undefined;
+  SettingsAccessibility: undefined;
+  SettingsNightMode: undefined;
+  SettingsShortcuts: undefined;
+  SettingsCommunication: undefined;
+  SettingsNavigationPrefs: undefined;
+  SettingsSoundsVoice: undefined;
 };
 
 export type ChatStackParamList = {

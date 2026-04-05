@@ -1,10 +1,11 @@
 /**
- * KeyGo branded loader — animated car-key mark + pulse ring + bouncing dots.
+ * KeyGo branded loader — animated car-key mark + pulse ring + bouncing dots + rotating marketing lines.
  */
-import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
+  FadeIn,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
@@ -15,9 +16,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { IconKeyGoLogo } from '../icons/navIcons';
 import { useTheme } from '../../theme/ThemeContext';
+import { FF } from '../../theme/fonts';
 
 const LOGO_SIZE = 72;
 const LOGO_STROKE = 1.55;
+const LINE_INTERVAL_MS = 2800;
 
 function BouncingDot({ color, delayMs }: { color: string; delayMs: number }) {
   const y = useSharedValue(0);
@@ -41,9 +44,29 @@ function BouncingDot({ color, delayMs }: { color: string; delayMs: number }) {
 type Props = {
   /** Full canvas background + centered (boot, overlays). */
   fullscreen?: boolean;
+  /** Live counts from GET /api/public/bootstrap — enriches rotating lines. */
+  stats?: { userCount: number; tripCount: number } | null;
 };
 
-export function BrandedLoading({ fullscreen }: Props) {
+function useMarketingLines(stats: { userCount: number; tripCount: number } | null | undefined) {
+  return useMemo(() => {
+    const u = stats?.userCount ?? 0;
+    const tr = stats?.tripCount ?? 0;
+    const uStr = u.toLocaleString();
+    const trStr = tr.toLocaleString();
+    return [
+      'Preparing your workspace…',
+      'Making sure routes and safety checks are ready…',
+      'Remember: KeyGo is vehicle relocation — not a taxi.',
+      u > 0 ? `${uStr} drivers and owners on KeyGo` : 'Join drivers and owners who trust KeyGo',
+      tr > 0 ? `${trStr} relocations logged` : 'Your trips sync securely with the cloud',
+      'Syncing preferences and notifications…',
+      'Almost there — polishing the experience…',
+    ];
+  }, [stats]);
+}
+
+export function BrandedLoading({ fullscreen, stats }: Props) {
   const { t } = useTheme();
   const breathe = useSharedValue(0);
   const tilt = useSharedValue(0);
@@ -99,6 +122,16 @@ export function BrandedLoading({ fullscreen }: Props) {
     transform: [{ scale: interpolate(breathe.value, [0, 1], [0.88, 1.02]) }],
   }));
 
+  const lines = useMarketingLines(stats ?? null);
+  const [lineIndex, setLineIndex] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setLineIndex((i) => (i + 1) % lines.length);
+    }, LINE_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [lines.length]);
+
   const core = (
     <View style={styles.core}>
       <View style={styles.markWrap}>
@@ -113,6 +146,11 @@ export function BrandedLoading({ fullscreen }: Props) {
         <BouncingDot color={t.accent} delayMs={120} />
         <BouncingDot color={t.accent} delayMs={240} />
       </View>
+      <Animated.View key={lineIndex} entering={FadeIn.duration(420)} style={styles.marketingWrap}>
+        <Text style={[styles.marketingLine, { color: t.textMuted, fontFamily: FF.regular }]} numberOfLines={3}>
+          {lines[lineIndex]}
+        </Text>
+      </Animated.View>
     </View>
   );
 
@@ -170,6 +208,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     height: 12,
+  },
+  marketingWrap: {
+    minHeight: 52,
+    justifyContent: 'center',
+  },
+  marketingLine: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    maxWidth: 300,
+    paddingHorizontal: 16,
   },
   dot: {
     width: 7,

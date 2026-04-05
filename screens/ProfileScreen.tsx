@@ -127,7 +127,6 @@ export function ProfileScreen() {
   const [avatarLocalUri, setAvatarLocalUri] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [safetyOpen, setSafetyOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const [roleModalOpen, setRoleModalOpen] = useState(false);
@@ -220,15 +219,14 @@ export function ProfileScreen() {
   const cx = ringSize / 2;
   const rOuter = AVATAR / 2 + RING - 1;
 
-  const scrollLocked =
-    helpOpen || safetyOpen || settingsOpen || signOutOpen || avatarEditorOpen || roleModalOpen;
+  const scrollLocked = helpOpen || safetyOpen || signOutOpen || avatarEditorOpen || roleModalOpen;
 
   return (
     <ScreenContainer align="stretch" scrollEnabled={!scrollLocked}>
       <Animated.View entering={FadeInDown.duration(260)} style={styles.topRow}>
         <TopChip label="Help" icon="❓" onPress={() => setHelpOpen(true)} t={t} />
         <TopChip label="Safety" icon="🛡" onPress={() => setSafetyOpen(true)} t={t} />
-        <TopChip label="Settings" icon="⚙" onPress={() => setSettingsOpen(true)} t={t} />
+        <TopChip label="Settings" icon="⚙" onPress={() => navigation.navigate('SettingsHome')} t={t} />
       </Animated.View>
 
       <BlurModalScrim visible={helpOpen} onRequestClose={() => setHelpOpen(false)}>
@@ -250,18 +248,6 @@ export function ProfileScreen() {
             Meet in public places when handing off keys, verify driver identity, and report issues immediately. We are building trust and safety tools into every trip.
           </Text>
           <Button variant="secondary" onPress={() => setSafetyOpen(false)}>
-            Close
-          </Button>
-        </View>
-      </BlurModalScrim>
-
-      <BlurModalScrim visible={settingsOpen} onRequestClose={() => setSettingsOpen(false)}>
-        <View style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]}>
-          <Text style={[styles.modalTitle, { color: t.text }]}>Settings</Text>
-          <Text style={[styles.modalBody, { color: t.textMuted }]}>
-            Theme, notifications, and privacy live here alongside your preferences below. More granular controls will arrive as the product grows.
-          </Text>
-          <Button variant="secondary" onPress={() => setSettingsOpen(false)}>
             Close
           </Button>
         </View>
