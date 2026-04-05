@@ -11,4 +11,6 @@ export type User = {
   avatarUrl?: string;
   /** 0–5 display rating */
   ratingAverage?: number;
+  /** Collected at signup; may be omitted for legacy accounts */
+  phone?: string;
 };

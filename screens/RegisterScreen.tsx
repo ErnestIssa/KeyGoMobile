@@ -25,6 +25,7 @@ export function RegisterScreen({ navigation }: Props) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'owner' | 'driver'>('driver');
   const [error, setError] = useState<string | null>(null);
@@ -32,12 +33,18 @@ export function RegisterScreen({ navigation }: Props) {
 
   const onSubmit = async () => {
     setError(null);
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 7 || digits.length > 15) {
+      setError('Enter a valid phone number (7–15 digits).');
+      return;
+    }
     setLoading(true);
     try {
       await signUp({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         email: email.trim(),
+        phone: phone.trim(),
         password,
         role,
       });
@@ -104,6 +111,18 @@ export function RegisterScreen({ navigation }: Props) {
                 keyboardType="email-address"
                 textContentType="emailAddress"
                 autoComplete="email"
+              />
+
+              <View style={styles.fieldGap} />
+
+              <Text style={[styles.label, { color: t.textMuted, fontFamily: FF.semibold }]}>Phone number</Text>
+              <Input
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                textContentType="telephoneNumber"
+                autoComplete="tel"
+                placeholder="+1 or local number"
               />
 
               <View style={styles.fieldGap} />

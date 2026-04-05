@@ -8,3 +8,8 @@ export function resolveAvatarUri(avatarUrl: string | undefined): string | undefi
   if (!API_BASE_URL) return path;
   return `${API_BASE_URL}${path}`;
 }
+
+/** Chat attachment paths from API (`/uploads/chat/...`). */
+export function resolveChatMediaUrl(mediaUrl: string | undefined): string | undefined {
+  return resolveAvatarUri(mediaUrl);
+}

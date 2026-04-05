@@ -32,7 +32,7 @@ function isPublicAuthPath(path: string): boolean {
   return base === '/auth/login' || base === '/auth/register';
 }
 
-function buildUrl(path: string): string {
+export function buildUrl(path: string): string {
   const segment = path.startsWith('/') ? path : `/${path}`;
   if (!API_BASE_URL) {
     throw new ApiError(
@@ -116,6 +116,7 @@ export type RegisterPayload = {
   lastName: string;
   email: string;
   password: string;
+  phone: string;
   role: 'owner' | 'driver';
 };
 
@@ -302,10 +303,13 @@ export type ConversationListItem = {
 
 export type MessageDeliveryStatus = 'sent' | 'delivered' | 'read';
 
+export type ChatMessageKind = 'text' | 'image' | 'video' | 'file' | 'audio' | 'call' | 'system';
+
 export type ChatMessage = {
   id: string;
   conversationId: string;
   senderId: string;
+  kind?: ChatMessageKind;
   text: string;
   createdAt: string;
   senderDisplayName?: string;
@@ -316,6 +320,17 @@ export type ChatMessage = {
   isUnread?: boolean;
   /** Outgoing: sent / delivered / read */
   deliveryStatus?: MessageDeliveryStatus;
+  mediaUrl?: string;
+  fileName?: string;
+  mimeType?: string;
+  durationSec?: number;
+  replyToMessageId?: string;
+  replyToPreview?: string;
+  reactions?: { userId: string; emoji: string }[];
+  starredByMe?: boolean;
+  isPinned?: boolean;
+  deleted?: boolean;
+  deletedPlaceholder?: boolean;
 };
 
 export async function createConversation(participantId: string): Promise<{
@@ -381,16 +396,132 @@ export async function getPublicUser(userId: string): Promise<{ user: PublicUserP
   return request(`/users/public/${encodeURIComponent(userId)}`, { method: 'GET' });
 }
 
-export async function postChatMessage(conversationId: string, text: string): Promise<{ message: ChatMessage }> {
+export async function postChatMessage(
+  conversationId: string,
+  text: string,
+  opts?: {
+    kind?: ChatMessageKind;
+    mediaUrl?: string;
+    fileName?: string;
+    mimeType?: string;
+    durationSec?: number;
+    replyToMessageId?: string;
+  }
+): Promise<{ message: ChatMessage }> {
   return request('/messages', {
     method: 'POST',
-    body: JSON.stringify({ conversationId, text }),
+    body: JSON.stringify({
+      conversationId,
+      text,
+      kind: opts?.kind,
+      mediaUrl: opts?.mediaUrl,
+      fileName: opts?.fileName,
+      mimeType: opts?.mimeType,
+      durationSec: opts?.durationSec,
+      replyToMessageId: opts?.replyToMessageId,
+    }),
+  });
+}
+
+export async function uploadChatMedia(
+  conversationId: string,
+  kind: 'image' | 'video' | 'file' | 'audio',
+  file: { uri: string; name: string; type: string },
+  opts?: { caption?: string; durationSec?: number }
+): Promise<{ message: ChatMessage }> {
+  const url = buildUrl('/messages/upload');
+  const token = await getToken();
+  const form = new FormData();
+  form.append('conversationId', conversationId);
+  form.append('kind', kind);
+  if (opts?.caption) {
+    form.append('caption', opts.caption);
+  }
+  if (opts?.durationSec != null) {
+    form.append('durationSec', String(opts.durationSec));
+  }
+  form.append('file', {
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
+  } as unknown as Blob);
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  const text = await res.text();
+  let data: unknown;
+  if (text) {
+    try {
+      data = JSON.parse(text) as unknown;
+    } catch {
+      throw new ApiError(text.slice(0, 200) || res.statusText || 'Upload failed', res.status);
+    }
+  }
+  if (!res.ok) {
+    const msg =
+      typeof data === 'object' && data !== null && 'error' in data && typeof (data as { error: string }).error === 'string'
+        ? (data as { error: string }).error
+        : 'Upload failed';
+    throw new ApiError(msg, res.status, data);
+  }
+  return data as { message: ChatMessage };
+}
+
+export async function postChatCallLog(
+  conversationId: string,
+  body: { callKind: 'voice' | 'video'; status: 'completed' | 'missed' | 'declined'; durationSec?: number }
+): Promise<{ message: ChatMessage }> {
+  return request(`/conversations/${encodeURIComponent(conversationId)}/call-log`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function patchMessageReaction(messageId: string, emoji: string | null): Promise<{ message: ChatMessage }> {
+  return request(`/messages/${encodeURIComponent(messageId)}/reaction`, {
+    method: 'PATCH',
+    body: JSON.stringify({ emoji }),
+  });
+}
+
+export async function patchMessageStar(messageId: string, starred: boolean): Promise<{ message: ChatMessage }> {
+  return request(`/messages/${encodeURIComponent(messageId)}/star`, {
+    method: 'PATCH',
+    body: JSON.stringify({ starred }),
+  });
+}
+
+export async function patchConversationPin(conversationId: string, messageId: string | null): Promise<{ ok: boolean }> {
+  return request(`/conversations/${encodeURIComponent(conversationId)}/pin`, {
+    method: 'PATCH',
+    body: JSON.stringify({ messageId }),
+  });
+}
+
+export async function deleteChatMessageApi(messageId: string, forEveryone: boolean): Promise<{ message: ChatMessage }> {
+  return request(`/messages/${encodeURIComponent(messageId)}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ forEveryone }),
+  });
+}
+
+export async function reportChatMessage(
+  messageId: string,
+  body: { reason?: string; block?: boolean }
+): Promise<{ ok: boolean; blockRequested?: boolean }> {
+  return request(`/messages/${encodeURIComponent(messageId)}/report`, {
+    method: 'POST',
+    body: JSON.stringify(body),
   });
 }
 
 export async function listChatMessages(conversationId: string): Promise<{
   messages: ChatMessage[];
   peerLastReadAt?: string | null;
+  pinnedMessageId?: string | null;
 }> {
   return request(`/messages/${encodeURIComponent(conversationId)}`, { method: 'GET' });
 }
