@@ -19,6 +19,8 @@ type Props = {
    * Default: true if `tabBarInset`, else false.
    */
   scrollable?: boolean;
+  /** When false, outer ScrollView does not scroll (e.g. while a modal is open). Default true. */
+  scrollEnabled?: boolean;
 };
 
 export function ScreenContainer({
@@ -26,6 +28,7 @@ export function ScreenContainer({
   align = 'center',
   tabBarInset = true,
   scrollable,
+  scrollEnabled = true,
 }: Props) {
   const insets = useSafeAreaInsets();
   const topInset = useContentTopInset();
@@ -39,6 +42,7 @@ export function ScreenContainer({
     return (
       <View style={styles.safe}>
         <ScrollView
+          scrollEnabled={scrollEnabled}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator
           style={styles.flex}

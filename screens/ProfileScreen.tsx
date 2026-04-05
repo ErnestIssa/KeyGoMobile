@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Modal,
   Pressable,
   StyleSheet,
   Switch,
@@ -21,6 +20,7 @@ import { AvatarEditorModal } from '../components/profile/AvatarEditorModal';
 import { RoleModeSection } from '../components/profile/RoleModeSection';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/ui/Button';
+import { BlurModalScrim } from '../components/ui/BlurModalScrim';
 import { Card } from '../components/ui/Card';
 import { useAuth } from '../context/AuthContext';
 import type { AppTabParamList, ProfileStackParamList } from '../navigation/types';
@@ -130,6 +130,7 @@ export function ProfileScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
   /** Bumped once when prefs + theme are hydrated so native Switches remount with correct on-colors (RN quirk). */
   const [prefSwitchRevision, setPrefSwitchRevision] = useState(0);
   const prefHydrateOnceRef = useRef(false);
@@ -219,77 +220,76 @@ export function ProfileScreen() {
   const cx = ringSize / 2;
   const rOuter = AVATAR / 2 + RING - 1;
 
-  const modal = (
-    open: boolean,
-    setOpen: (v: boolean) => void,
-    title: string,
-    body: string
-  ) => (
-    <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-      <Pressable style={styles.modalBackdrop} onPress={() => setOpen(false)}>
-        <Pressable style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]} onPress={(e) => e.stopPropagation()}>
-          <Text style={[styles.modalTitle, { color: t.text }]}>{title}</Text>
-          <Text style={[styles.modalBody, { color: t.textMuted }]}>{body}</Text>
-          <Button variant="secondary" onPress={() => setOpen(false)}>
-            Close
-          </Button>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
+  const scrollLocked =
+    helpOpen || safetyOpen || settingsOpen || signOutOpen || avatarEditorOpen || roleModalOpen;
 
   return (
-    <ScreenContainer align="stretch">
+    <ScreenContainer align="stretch" scrollEnabled={!scrollLocked}>
       <Animated.View entering={FadeInDown.duration(260)} style={styles.topRow}>
         <TopChip label="Help" icon="❓" onPress={() => setHelpOpen(true)} t={t} />
         <TopChip label="Safety" icon="🛡" onPress={() => setSafetyOpen(true)} t={t} />
         <TopChip label="Settings" icon="⚙" onPress={() => setSettingsOpen(true)} t={t} />
       </Animated.View>
 
-      {modal(
-        helpOpen,
-        setHelpOpen,
-        'Help',
-        'Browse FAQs, contact support, and troubleshoot trips. Full in-app help is coming soon — for now use your trip screens and account email for support.'
-      )}
-      {modal(
-        safetyOpen,
-        setSafetyOpen,
-        'Safety',
-        'Meet in public places when handing off keys, verify driver identity, and report issues immediately. We are building trust and safety tools into every trip.'
-      )}
-      {modal(
-        settingsOpen,
-        setSettingsOpen,
-        'Settings',
-        'Theme, notifications, and privacy live here alongside your preferences below. More granular controls will arrive as the product grows.'
-      )}
+      <BlurModalScrim visible={helpOpen} onRequestClose={() => setHelpOpen(false)}>
+        <View style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]}>
+          <Text style={[styles.modalTitle, { color: t.text }]}>Help</Text>
+          <Text style={[styles.modalBody, { color: t.textMuted }]}>
+            Browse FAQs, contact support, and troubleshoot trips. Full in-app help is coming soon — for now use your trip screens and account email for support.
+          </Text>
+          <Button variant="secondary" onPress={() => setHelpOpen(false)}>
+            Close
+          </Button>
+        </View>
+      </BlurModalScrim>
 
-      <Modal visible={signOutOpen} transparent animationType="fade" onRequestClose={() => setSignOutOpen(false)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => setSignOutOpen(false)}>
-          <Pressable style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]} onPress={(e) => e.stopPropagation()}>
-            <Text style={[styles.modalTitle, { color: t.text }]}>Sign out?</Text>
-            <Text style={[styles.modalMeta, { color: t.textMuted }]}>
-              Signed in as{' '}
-              <Text style={{ color: t.text, fontFamily: FF.semibold }}>{user?.email}</Text>
-            </Text>
-            <Text style={[styles.modalMeta, { color: t.textMuted, marginTop: 6 }]}>
-              Role: <Text style={{ color: t.brand, fontFamily: FF.bold, textTransform: 'capitalize' }}>{user?.role}</Text>
-            </Text>
-            <Text style={[styles.modalBody, { color: t.textMuted, marginTop: 14 }]}>
-              Signing out clears this session on this device. To use Owner vs Driver tools, use Role mode above — no second account needed.
-            </Text>
-            <View style={styles.modalActions}>
-              <Button variant="danger" fullWidth onPress={() => { setSignOutOpen(false); void signOut(); }}>
-                Sign out
-              </Button>
-              <Button variant="secondary" fullWidth onPress={() => setSignOutOpen(false)}>
-                Cancel
-              </Button>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <BlurModalScrim visible={safetyOpen} onRequestClose={() => setSafetyOpen(false)}>
+        <View style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]}>
+          <Text style={[styles.modalTitle, { color: t.text }]}>Safety</Text>
+          <Text style={[styles.modalBody, { color: t.textMuted }]}>
+            Meet in public places when handing off keys, verify driver identity, and report issues immediately. We are building trust and safety tools into every trip.
+          </Text>
+          <Button variant="secondary" onPress={() => setSafetyOpen(false)}>
+            Close
+          </Button>
+        </View>
+      </BlurModalScrim>
+
+      <BlurModalScrim visible={settingsOpen} onRequestClose={() => setSettingsOpen(false)}>
+        <View style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]}>
+          <Text style={[styles.modalTitle, { color: t.text }]}>Settings</Text>
+          <Text style={[styles.modalBody, { color: t.textMuted }]}>
+            Theme, notifications, and privacy live here alongside your preferences below. More granular controls will arrive as the product grows.
+          </Text>
+          <Button variant="secondary" onPress={() => setSettingsOpen(false)}>
+            Close
+          </Button>
+        </View>
+      </BlurModalScrim>
+
+      <BlurModalScrim visible={signOutOpen} onRequestClose={() => setSignOutOpen(false)}>
+        <View style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]}>
+          <Text style={[styles.modalTitle, { color: t.text }]}>Sign out?</Text>
+          <Text style={[styles.modalMeta, { color: t.textMuted }]}>
+            Signed in as{' '}
+            <Text style={{ color: t.text, fontFamily: FF.semibold }}>{user?.email}</Text>
+          </Text>
+          <Text style={[styles.modalMeta, { color: t.textMuted, marginTop: 6 }]}>
+            Role: <Text style={{ color: t.brand, fontFamily: FF.bold, textTransform: 'capitalize' }}>{user?.role}</Text>
+          </Text>
+          <Text style={[styles.modalBody, { color: t.textMuted, marginTop: 14 }]}>
+            Signing out clears this session on this device. To use Owner vs Driver tools, use Role mode above — no second account needed.
+          </Text>
+          <View style={styles.modalActions}>
+            <Button variant="danger" fullWidth onPress={() => { setSignOutOpen(false); void signOut(); }}>
+              Sign out
+            </Button>
+            <Button variant="secondary" fullWidth onPress={() => setSignOutOpen(false)}>
+              Cancel
+            </Button>
+          </View>
+        </View>
+      </BlurModalScrim>
 
       <AvatarEditorModal
         visible={avatarEditorOpen}
@@ -364,7 +364,7 @@ export function ProfileScreen() {
       <View style={{ height: 14 }} />
 
       <Animated.View entering={FadeInDown.delay(56).duration(280)}>
-        <RoleModeSection onSwitched={() => tabNavigation?.navigate('Home')} />
+        <RoleModeSection onSwitched={() => tabNavigation?.navigate('Home')} onModalVisibilityChange={setRoleModalOpen} />
       </Animated.View>
 
       <View style={{ height: 12 }} />
@@ -664,12 +664,6 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(148, 163, 184, 0.25)',
     marginVertical: 10,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 24,
   },
   modalCard: {
     borderRadius: radii.card + 4,

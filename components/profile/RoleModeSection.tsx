@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   LayoutChangeEvent,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,6 +29,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { FF } from '../../theme/fonts';
 import { radii } from '../../theme/tokens';
 import { Button } from '../ui/Button';
+import { BlurModalScrim } from '../ui/BlurModalScrim';
 import { Card } from '../ui/Card';
 import { hapticLight, hapticSelection } from '../../services/haptics';
 
@@ -41,6 +41,8 @@ type AppRole = 'owner' | 'driver';
 type Props = {
   /** After a successful server role change — e.g. navigate to Home tab. */
   onSwitched: () => void;
+  /** Fired when info or confirm overlay is shown/hidden (e.g. lock parent scroll). */
+  onModalVisibilityChange?: (open: boolean) => void;
 };
 
 function InfoGlyph({ color }: { color: string }) {
@@ -51,7 +53,7 @@ function InfoGlyph({ color }: { color: string }) {
   );
 }
 
-export function RoleModeSection({ onSwitched }: Props) {
+export function RoleModeSection({ onSwitched, onModalVisibilityChange }: Props) {
   const { user, switchRole } = useAuth();
   const { t } = useTheme();
   const { height: windowH } = useWindowDimensions();
@@ -75,6 +77,10 @@ export function RoleModeSection({ onSwitched }: Props) {
     const x = active === 'owner' ? TRACK_PAD + 2 : TRACK_PAD + 2 + segmentW;
     pillX.value = withSpring(x, SPRING);
   }, [active, innerW, segmentW, pillX]);
+
+  useEffect(() => {
+    onModalVisibilityChange?.(infoTarget !== null || confirmTarget !== null);
+  }, [infoTarget, confirmTarget, onModalVisibilityChange]);
 
   const pillStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: pillX.value }],
@@ -112,65 +118,66 @@ export function RoleModeSection({ onSwitched }: Props) {
   if (!canShow) return null;
 
   const infoModalMaxH = Math.max(280, windowH - insets.top - insets.bottom - 32);
-  const infoBackdropPad = {
+  const infoBackdropStyle = {
+    paddingHorizontal: 24,
     paddingTop: Math.max(16, insets.top + 8),
     paddingBottom: Math.max(16, insets.bottom + 8),
   };
 
   return (
     <>
-      <Modal visible={infoTarget !== null} transparent animationType="fade" onRequestClose={() => setInfoTarget(null)}>
-        <Pressable style={[styles.modalBackdrop, infoBackdropPad]} onPress={() => setInfoTarget(null)}>
-          <View
-            style={[
-              styles.modalCard,
-              styles.infoModalCard,
-              { backgroundColor: t.bgElevated, borderColor: t.border, maxHeight: infoModalMaxH },
-            ]}
+      <BlurModalScrim
+        visible={infoTarget !== null}
+        onRequestClose={() => setInfoTarget(null)}
+        backdropStyle={infoBackdropStyle}
+      >
+        <View
+          style={[
+            styles.modalCard,
+            styles.infoModalCard,
+            { backgroundColor: t.bgElevated, borderColor: t.border, maxHeight: infoModalMaxH },
+          ]}
+        >
+          <ScrollView
+            showsVerticalScrollIndicator
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.infoModalScrollContent}
           >
-            <ScrollView
-              showsVerticalScrollIndicator
-              nestedScrollEnabled
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={styles.infoModalScrollContent}
-            >
-              <Text style={[styles.modalTitle, { color: t.text }]}>
-                {infoTarget === 'owner' ? ROLE_INFO_OWNER_TITLE : ROLE_INFO_DRIVER_TITLE}
-              </Text>
-              <Text style={[styles.infoBody, { color: t.textMuted }]}>
-                {infoTarget === 'owner' ? ROLE_INFO_OWNER_BODY : ROLE_INFO_DRIVER_BODY}
-              </Text>
-              <View style={styles.infoModalFooter}>
-                <Button variant="secondary" fullWidth onPress={() => setInfoTarget(null)}>
-                  Close
-                </Button>
-              </View>
-            </ScrollView>
-          </View>
-        </Pressable>
-      </Modal>
-
-      <Modal visible={confirmTarget !== null} transparent animationType="fade" onRequestClose={() => !busy && setConfirmTarget(null)}>
-        <Pressable style={styles.modalBackdrop} onPress={() => !busy && setConfirmTarget(null)}>
-          <Pressable
-            style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <Text style={[styles.modalTitle, { color: t.text }]}>Switch role mode?</Text>
-            <Text style={[styles.modalBody, { color: t.textMuted }]}>
-              {confirmTarget === 'owner' ? ROLE_CONFIRM_OWNER : ROLE_CONFIRM_DRIVER}
+            <Text style={[styles.modalTitle, { color: t.text }]}>
+              {infoTarget === 'owner' ? ROLE_INFO_OWNER_TITLE : ROLE_INFO_DRIVER_TITLE}
             </Text>
-            <View style={styles.modalActions}>
-              <Button variant="primary" fullWidth loading={busy} onPress={() => void runSwitch()}>
-                Confirm switch
-              </Button>
-              <Button variant="secondary" fullWidth disabled={busy} onPress={() => setConfirmTarget(null)}>
-                Cancel
+            <Text style={[styles.infoBody, { color: t.textMuted }]}>
+              {infoTarget === 'owner' ? ROLE_INFO_OWNER_BODY : ROLE_INFO_DRIVER_BODY}
+            </Text>
+            <View style={styles.infoModalFooter}>
+              <Button variant="secondary" fullWidth onPress={() => setInfoTarget(null)}>
+                Close
               </Button>
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          </ScrollView>
+        </View>
+      </BlurModalScrim>
+
+      <BlurModalScrim
+        visible={confirmTarget !== null}
+        onRequestClose={() => !busy && setConfirmTarget(null)}
+      >
+        <View style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]}>
+          <Text style={[styles.modalTitle, { color: t.text }]}>Switch role mode?</Text>
+          <Text style={[styles.modalBody, { color: t.textMuted }]}>
+            {confirmTarget === 'owner' ? ROLE_CONFIRM_OWNER : ROLE_CONFIRM_DRIVER}
+          </Text>
+          <View style={styles.modalActions}>
+            <Button variant="primary" fullWidth loading={busy} onPress={() => void runSwitch()}>
+              Confirm switch
+            </Button>
+            <Button variant="secondary" fullWidth disabled={busy} onPress={() => setConfirmTarget(null)}>
+              Cancel
+            </Button>
+          </View>
+        </View>
+      </BlurModalScrim>
 
       <View style={styles.sectionLabelWrap}>
         <Text style={[styles.groupLabel, { color: t.canvasTextMuted }]}>Role mode</Text>
@@ -343,12 +350,6 @@ const styles = StyleSheet.create({
   footerNote: {
     marginTop: 12,
     fontSize: 12,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: 24,
   },
   modalCard: {
     borderRadius: radii.card + 4,

@@ -276,6 +276,14 @@ export type ChatUserPreview = {
 
 export type LastMessageStatus = 'sent' | 'delivered' | 'read' | 'received';
 
+export type ConversationMySettings = {
+  archived: boolean;
+  muted: boolean;
+  favorite: boolean;
+  listTag: string | null;
+  manualUnread: boolean;
+};
+
 export type ConversationListItem = {
   id: string;
   participants: string[];
@@ -288,6 +296,8 @@ export type ConversationListItem = {
   lastMessageSenderId?: string;
   /** Server-computed status for the latest message in this thread */
   lastMessageStatus?: LastMessageStatus;
+  mySettings?: ConversationMySettings;
+  isLocked?: boolean;
 };
 
 export type MessageDeliveryStatus = 'sent' | 'delivered' | 'read';
@@ -317,12 +327,44 @@ export async function createConversation(participantId: string): Promise<{
   });
 }
 
-export async function listConversations(): Promise<{ conversations: ConversationListItem[] }> {
-  return request('/conversations', { method: 'GET' });
+export async function listConversations(includeArchived?: boolean): Promise<{ conversations: ConversationListItem[] }> {
+  const q = includeArchived ? '?includeArchived=1' : '';
+  return request(`/conversations${q}`, { method: 'GET' });
 }
 
 export async function deleteConversation(conversationId: string): Promise<void> {
   await request(`/conversations/${encodeURIComponent(conversationId)}`, { method: 'DELETE' });
+}
+
+export async function patchConversationSettings(
+  conversationId: string,
+  patch: Partial<{
+    archived: boolean;
+    muted: boolean;
+    favorite: boolean;
+    listTag: string | null;
+    manualUnread: boolean;
+  }>
+): Promise<{ settings: ConversationMySettings }> {
+  return request(`/conversations/${encodeURIComponent(conversationId)}/settings`, {
+    method: 'PATCH',
+    body: JSON.stringify(patch),
+  });
+}
+
+export async function clearConversationHistory(conversationId: string): Promise<void> {
+  await request(`/conversations/${encodeURIComponent(conversationId)}/clear`, { method: 'POST' });
+}
+
+export async function postConversationMarkUnread(conversationId: string): Promise<void> {
+  await request(`/conversations/${encodeURIComponent(conversationId)}/mark-unread`, { method: 'POST' });
+}
+
+export async function postConversationLock(conversationId: string, locked: boolean): Promise<void> {
+  await request(`/conversations/${encodeURIComponent(conversationId)}/lock`, {
+    method: 'POST',
+    body: JSON.stringify({ locked }),
+  });
 }
 
 export type PublicUserProfile = {
