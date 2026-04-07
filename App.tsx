@@ -51,7 +51,7 @@ export default function App() {
       <GestureHandlerRootView style={styles.root}>
         <SafeAreaProvider>
           <ThemeProvider>
-            <BrandedLoading fullscreen />
+            <BrandedLoading fullscreen minimal />
           </ThemeProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>

@@ -27,7 +27,7 @@ type RegisterRoute = RouteProp<AuthStackParamList, 'Register'>;
 export function RegisterScreen({ navigation }: Props) {
   const route = useRoute<RegisterRoute>();
   const preferBusiness = route.params?.preferBusiness ?? false;
-  const { signUp, bootstrapStats } = useAuth();
+  const { signUp } = useAuth();
   const { t } = useTheme();
 
   const [wizardOpen, setWizardOpen] = useState(true);
@@ -430,7 +430,7 @@ export function RegisterScreen({ navigation }: Props) {
     </KeyboardAvoidingView>
     {loading ? (
       <View style={[StyleSheet.absoluteFillObject, { zIndex: 9999 }]} pointerEvents="auto">
-        <BrandedLoading fullscreen stats={bootstrapStats} showMarketingLines />
+        <BrandedLoading fullscreen minimal />
       </View>
     ) : null}
     </>

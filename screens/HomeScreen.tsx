@@ -2,10 +2,9 @@
  * WHAT THIS DOES
  * - Fleet state: `VehicleFleetProvider` + `useVehicleFleet` (poll + RAF lerp; `applyFleetSnapshot` for WebSockets).
  * - `expo-location`: user GPS (`useUserLocationWatch`).
- * - Native: Mapbox gestures, day/night + traffic styles, follow (user / vehicle / pan), marker tap → card + haptics + sound.
+ * - Native: Mapbox (prod) or MapLibre + OSM (EXPO_PUBLIC_USE_MAPLIBRE=1 dev), follow (user / vehicle / pan), marker tap → card + haptics + sound.
  * - Expo Go: placeholder + same UX minus real map tiles.
  */
-import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import {
   useCallback,
@@ -18,14 +17,16 @@ import {
 } from 'react';
 import { Animated, NativeModules, Pressable, StyleSheet, View } from 'react-native';
 import { IconKeyGoLogo } from '../components/icons/navIcons';
+import { HomeMapLibreBody } from '../components/map/HomeMapLibreBody';
 import { MapHomeControls, type MapVisualMode } from '../components/map/MapHomeControls';
 import { MapPlaceholder } from '../components/map/MapPlaceholder';
 import { MapVehicleInfoCard } from '../components/map/MapVehicleInfoCard';
 import { useVehicleFleet } from '../hooks/useVehicleFleet';
 import { useUserLocationWatch, type UserLngLat } from '../hooks/useUserLocationWatch';
 import type { MapboxCameraHandle } from '../lib/map/mapboxCamera';
+import { markerTapFeedback } from '../lib/map/markerTapFeedback';
+import { shouldUseMapLibreOsmDev } from '../lib/map/mapDevMapProvider';
 import { TRACKABLE_USER_ID } from '../lib/map/tracking';
-import { playMarkerTap } from '../services/sounds';
 import { useTheme } from '../theme/ThemeContext';
 /** Mapbox `centerCoordinate` / `PointAnnotation`: `[longitude, latitude]` — Stockholm default. */
 const STOCKHOLM_CENTER: [number, number] = [18.0686, 59.3293];
@@ -50,15 +51,6 @@ function lngLatToOverlayPx(
     x: dLng * scale * Math.cos(latRad),
     y: -dLat * scale,
   };
-}
-
-async function markerTapFeedback() {
-  try {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  } catch {
-    /* simulator / web */
-  }
-  void playMarkerTap();
 }
 
 export function HomeScreen() {
@@ -93,6 +85,21 @@ export function HomeScreen() {
       fleet.setFollowMode('none');
     }
   }, [fleet.followMode, fleet.selectedVehicleId, fleet.setFollowMode]);
+
+  if (shouldUseMapLibreOsmDev()) {
+    return (
+      <HomeMapLibreBody
+        coordinate={location.coordinate}
+        fleet={fleet}
+        brandColor={t.brand}
+        mapVisualMode={mapVisualMode}
+        trafficEnabled={trafficEnabled}
+        onToggleMapVisualMode={toggleMapVisualMode}
+        onToggleTraffic={() => setTrafficEnabled((x) => !x)}
+        selectedVehicle={selectedVehicle}
+      />
+    );
+  }
 
   if (!isMapboxNativeAvailable()) {
     return (

@@ -157,9 +157,6 @@ function ConversationCardContent({
               {settings.listTag}
             </Text>
           ) : null}
-          {st.label ? (
-            <Text style={{ color: st.color, fontFamily: FF.semibold, fontSize: 11, marginTop: 4 }}>{st.label}</Text>
-          ) : null}
           {c.lastMessagePreview ? (
             <Text
               style={{ color: t.textMuted, fontFamily: FF.regular, marginTop: 6, fontSize: 14 }}
@@ -170,6 +167,11 @@ function ConversationCardContent({
           ) : (
             <Text style={{ color: t.textMuted, fontFamily: FF.regular, marginTop: 6, fontSize: 13 }}>No messages yet</Text>
           )}
+          {st.label ? (
+            <View style={styles.convCardStatusRow}>
+              <Text style={{ color: st.color, fontFamily: FF.semibold, fontSize: 11 }}>{st.label}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
     </View>
@@ -1100,6 +1102,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 14,
     overflow: 'hidden',
+  },
+  convCardStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 6,
   },
   statusIcons: {
     flexDirection: 'row',

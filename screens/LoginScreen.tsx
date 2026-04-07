@@ -20,7 +20,7 @@ import { FF } from '../theme/fonts';
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export function LoginScreen({ navigation }: Props) {
-  const { signIn, bootstrapStats } = useAuth();
+  const { signIn } = useAuth();
   const { t } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -126,7 +126,7 @@ export function LoginScreen({ navigation }: Props) {
     </KeyboardAvoidingView>
     {loading ? (
       <View style={[StyleSheet.absoluteFillObject, { zIndex: 9999 }]} pointerEvents="auto">
-        <BrandedLoading fullscreen stats={bootstrapStats} showMarketingLines />
+        <BrandedLoading fullscreen minimal />
       </View>
     ) : null}
     </>

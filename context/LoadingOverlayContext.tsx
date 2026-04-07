@@ -40,7 +40,7 @@ export function LoadingOverlayProvider({ children }: { children: ReactNode }) {
         {children}
         {visible ? (
           <View style={styles.overlay} pointerEvents="auto">
-            <BrandedLoading fullscreen />
+            <BrandedLoading fullscreen minimal />
           </View>
         ) : null}
       </View>

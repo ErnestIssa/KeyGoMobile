@@ -53,6 +53,8 @@ type Props = {
    * Overlays and in-screen loading use the logo only — no copy below.
    */
   showMarketingLines?: boolean;
+  /** Logo + rings only — no bouncing dots, no marketing copy (generic loading). */
+  minimal?: boolean;
   /**
    * Fired once after every line has been shown for one interval (one full loop).
    * Used so the auth gate can wait for a full rotation before Login/Register.
@@ -81,6 +83,7 @@ export function BrandedLoading({
   fullscreen,
   stats,
   showMarketingLines = false,
+  minimal = false,
   onMarketingCycleComplete,
 }: Props) {
   const { t } = useTheme();
@@ -142,12 +145,12 @@ export function BrandedLoading({
   const [lineIndex, setLineIndex] = useState(0);
 
   useEffect(() => {
-    if (!showMarketingLines || lines.length === 0) return;
+    if (minimal || !showMarketingLines || lines.length === 0) return;
     const id = setInterval(() => {
       setLineIndex((i) => (i + 1) % lines.length);
     }, MARKETING_LINE_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [showMarketingLines, lines.length]);
+  }, [minimal, showMarketingLines, lines.length]);
 
   const onCycleRef = useRef(onMarketingCycleComplete);
   onCycleRef.current = onMarketingCycleComplete;
@@ -155,10 +158,10 @@ export function BrandedLoading({
 
   useEffect(() => {
     cycleFiredRef.current = false;
-  }, [showMarketingLines, lines.length]);
+  }, [minimal, showMarketingLines, lines.length]);
 
   useEffect(() => {
-    if (!showMarketingLines || lines.length === 0) return;
+    if (minimal || !showMarketingLines || lines.length === 0) return;
     const ms = lines.length * MARKETING_LINE_INTERVAL_MS;
     const id = setTimeout(() => {
       if (cycleFiredRef.current) return;
@@ -166,7 +169,7 @@ export function BrandedLoading({
       onCycleRef.current?.();
     }, ms);
     return () => clearTimeout(id);
-  }, [showMarketingLines, lines.length]);
+  }, [minimal, showMarketingLines, lines.length]);
 
   const core = (
     <View style={styles.core}>
@@ -177,12 +180,14 @@ export function BrandedLoading({
           <IconKeyGoLogo size={LOGO_SIZE} color={t.accent} strokeWidth={LOGO_STROKE} />
         </Animated.View>
       </View>
-      <View style={styles.dotsRow} accessibilityRole="progressbar" accessibilityLabel="Loading">
-        <BouncingDot color={t.accent} delayMs={0} />
-        <BouncingDot color={t.accent} delayMs={120} />
-        <BouncingDot color={t.accent} delayMs={240} />
-      </View>
-      {showMarketingLines ? (
+      {!minimal ? (
+        <View style={styles.dotsRow} accessibilityRole="progressbar" accessibilityLabel="Loading">
+          <BouncingDot color={t.accent} delayMs={0} />
+          <BouncingDot color={t.accent} delayMs={120} />
+          <BouncingDot color={t.accent} delayMs={240} />
+        </View>
+      ) : null}
+      {showMarketingLines && !minimal ? (
         <Animated.View key={lineIndex} entering={FadeIn.duration(420)} style={styles.marketingWrap}>
           <Text style={[styles.marketingLine, { color: t.textMuted, fontFamily: FF.regular }]} numberOfLines={3}>
             {lines[lineIndex]}

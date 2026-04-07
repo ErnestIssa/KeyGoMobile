@@ -40,6 +40,7 @@
       "expo-font",
       "expo-notifications",
       "@rnmapbox/maps",
+      "@maplibre/maplibre-react-native",
       [
         "expo-location",
         {
