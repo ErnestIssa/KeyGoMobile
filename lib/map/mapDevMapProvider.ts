@@ -1,6 +1,7 @@
 /**
  * Dev-only map backend toggle: MapLibre + OSM-style tiles vs Mapbox (production).
  * Set `EXPO_PUBLIC_USE_MAPLIBRE=1` and rebuild native (Expo prebuild / dev client) to use MapLibre.
+ * Expo Go: `MLRNModule` is absent → MapLibre never loads (lazy chunk); Home uses `react-native-maps` instead.
  * Mapbox code paths stay in the repo; this only switches which native map renders at runtime.
  */
 import { NativeModules } from 'react-native';

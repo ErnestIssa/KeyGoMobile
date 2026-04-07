@@ -4,6 +4,7 @@
     "slug": "keygo",
     "version": "1.0.0",
     "scheme": "keygo",
+    "platforms": ["ios", "android"],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -32,9 +33,6 @@
         "android.permission.ACCESS_FINE_LOCATION"
       ],
       "package": "com.anonymous.KeyGoMobile"
-    },
-    "web": {
-      "favicon": "./assets/logos/favicon.png"
     },
     "plugins": [
       "expo-font",
