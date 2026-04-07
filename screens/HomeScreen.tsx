@@ -3,7 +3,7 @@
  * - Fleet state: `VehicleFleetProvider` + `useVehicleFleet` (poll + RAF lerp; `applyFleetSnapshot` for WebSockets).
  * - `expo-location`: user GPS (`useUserLocationWatch`).
  * - Native: Mapbox (prod) or MapLibre + OSM (EXPO_PUBLIC_USE_MAPLIBRE=1 dev), follow (user / vehicle / pan), marker tap → card + haptics + sound.
- * - Expo Go: placeholder + same UX minus real map tiles.
+ * - Expo Go / no native Mapbox: `react-native-maps` (Apple Maps on iOS, Google on Android) + markers + follow modes.
  */
 import * as Location from 'expo-location';
 import {
@@ -15,12 +15,11 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
-import { ActivityIndicator, Animated, NativeModules, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, NativeModules, StyleSheet, View } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import { IconKeyGoLogo } from '../components/icons/navIcons';
 import { MapHomeControls, type MapVisualMode } from '../components/map/MapHomeControls';
-import { MapPlaceholder } from '../components/map/MapPlaceholder';
 import { MapVehicleInfoCard } from '../components/map/MapVehicleInfoCard';
 import { useVehicleFleet } from '../hooks/useVehicleFleet';
 import { useUserLocationWatch, type UserLngLat } from '../hooks/useUserLocationWatch';
@@ -40,25 +39,11 @@ const HomeMapLibreBodyLazy = lazy(() => import('../components/map/HomeMapLibreBo
 const STOCKHOLM_CENTER: [number, number] = [18.0686, 59.3293];
 const DEFAULT_ZOOM = 12;
 
-/** Scales lon/lat delta to pixels for Expo Go overlay (toy projection, not geographic). */
-const EXPO_GO_MOTION_SCALE = 320_000;
+/** ~zoom 14 for `animateToRegion` in Expo Go map. */
+const EXPO_GO_REGION_DELTA = { latitudeDelta: 0.015, longitudeDelta: 0.015 };
 
 function isMapboxNativeAvailable(): boolean {
   return NativeModules.RNMBXModule != null;
-}
-
-function lngLatToOverlayPx(
-  lngLat: [number, number],
-  anchor: [number, number],
-  scale: number
-): { x: number; y: number } {
-  const dLng = lngLat[0] - anchor[0];
-  const dLat = lngLat[1] - anchor[1];
-  const latRad = (lngLat[1] * Math.PI) / 180;
-  return {
-    x: dLng * scale * Math.cos(latRad),
-    y: -dLat * scale,
-  };
 }
 
 export function HomeScreen() {
@@ -170,18 +155,47 @@ function ExpoGoHomeBody({
   selectedVehicle: import('../services/api').VehiclePositionRow | null;
   t: ReturnType<typeof useTheme>['t'];
 }) {
-  const userAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const mapRef = useRef<MapView | null>(null);
+  const didInitialCenter = useRef(false);
+  const [mapReady, setMapReady] = useState(false);
+
+  const selectedLngLat = useMemo(() => {
+    if (!fleet.selectedVehicleId) return null;
+    return fleet.vehiclesLngLat.find((v) => v.id === fleet.selectedVehicleId)?.lngLat ?? null;
+  }, [fleet.selectedVehicleId, fleet.vehiclesLngLat]);
+
+  const animateToLngLat = useCallback((lngLat: [number, number], duration: number) => {
+    mapRef.current?.animateToRegion(
+      {
+        latitude: lngLat[1],
+        longitude: lngLat[0],
+        ...EXPO_GO_REGION_DELTA,
+      },
+      duration
+    );
+  }, []);
 
   useEffect(() => {
-    if (!coordinate) return;
-    const { x, y } = lngLatToOverlayPx(coordinate, STOCKHOLM_CENTER, EXPO_GO_MOTION_SCALE);
-    Animated.spring(userAnim, {
-      toValue: { x, y },
-      friction: 8,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
-  }, [coordinate, userAnim]);
+    if (!mapReady || !coordinate || didInitialCenter.current) return;
+    didInitialCenter.current = true;
+    animateToLngLat(coordinate, 0);
+  }, [mapReady, coordinate, animateToLngLat]);
+
+  useEffect(() => {
+    if (!mapReady || !didInitialCenter.current) return;
+    if (fleet.followMode !== 'user' || !coordinate) return;
+    animateToLngLat(coordinate, 280);
+  }, [mapReady, coordinate, fleet.followMode, animateToLngLat]);
+
+  useEffect(() => {
+    if (!mapReady || !didInitialCenter.current) return;
+    if (fleet.followMode !== 'vehicle' || !selectedLngLat) return;
+    animateToLngLat(selectedLngLat, 300);
+  }, [mapReady, fleet.followMode, selectedLngLat, animateToLngLat]);
+
+  const onMapPress = useCallback(() => {
+    fleet.selectVehicle(null);
+  }, [fleet]);
 
   const onVehiclePress = async (id: string) => {
     await markerTapFeedback();
@@ -190,7 +204,49 @@ function ExpoGoHomeBody({
 
   return (
     <View style={[styles.fill, { backgroundColor: t.bgPage }]}>
-      <MapPlaceholder />
+      <MapView
+        ref={mapRef}
+        style={styles.fill}
+        initialRegion={{
+          latitude: STOCKHOLM_CENTER[1],
+          longitude: STOCKHOLM_CENTER[0],
+          ...EXPO_GO_REGION_DELTA,
+        }}
+        mapType="standard"
+        userInterfaceStyle={mapVisualMode === 'night' ? 'dark' : 'light'}
+        showsTraffic={trafficEnabled}
+        rotateEnabled
+        pitchEnabled
+        scrollEnabled
+        zoomEnabled
+        onMapReady={() => setMapReady(true)}
+        onPress={onMapPress}
+        onPanDrag={() => fleet.setFollowMode('none')}
+      >
+        {fleet.vehiclesLngLat.map((v) => (
+          <Marker
+            key={v.id}
+            coordinate={{ latitude: v.lngLat[1], longitude: v.lngLat[0] }}
+            onPress={() => void onVehiclePress(v.id)}
+            tracksViewChanges={false}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.vehicleMarkerWrap}>
+              <IconKeyGoLogo size={28} color={t.brand} strokeWidth={1.65} />
+            </View>
+          </Marker>
+        ))}
+        {permissionGranted && coordinate ? (
+          <Marker
+            coordinate={{ latitude: coordinate[1], longitude: coordinate[0] }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+            zIndex={1000}
+          >
+            <View style={styles.expoGoUserDot} />
+          </Marker>
+        ) : null}
+      </MapView>
       <MapHomeControls
         mapVisualMode={mapVisualMode}
         onToggleMapVisualMode={onToggleMapVisualMode}
@@ -200,66 +256,10 @@ function ExpoGoHomeBody({
         onSetFollowMode={fleet.setFollowMode}
         hasSelectedVehicle={fleet.selectedVehicleId != null}
       />
-      <View style={styles.expoGoMarkerHost} pointerEvents="box-none">
-        {fleet.vehiclesLngLat.map((v) => (
-          <AnimatedVehicleExpoMarker
-            key={v.id}
-            lngLat={v.lngLat}
-            anchor={STOCKHOLM_CENTER}
-            scale={EXPO_GO_MOTION_SCALE}
-            onPress={() => void onVehiclePress(v.id)}
-          >
-            <IconKeyGoLogo size={28} color={t.brand} strokeWidth={1.65} />
-          </AnimatedVehicleExpoMarker>
-        ))}
-        {permissionGranted && coordinate ? (
-          <View style={[StyleSheet.absoluteFillObject, styles.expoGoMarkerLayer]}>
-            <Animated.View style={[styles.expoGoUserDot, { transform: userAnim.getTranslateTransform() }]} />
-          </View>
-        ) : null}
-      </View>
       <MapVehicleInfoCard
         vehicle={selectedVehicle}
         onClose={() => fleet.selectVehicle(null)}
       />
-    </View>
-  );
-}
-
-function AnimatedVehicleExpoMarker({
-  lngLat,
-  anchor,
-  scale,
-  onPress,
-  children,
-}: {
-  lngLat: [number, number];
-  anchor: [number, number];
-  scale: number;
-  onPress: () => void;
-  children: ReactNode;
-}) {
-  const anim = useRef(
-    new Animated.ValueXY(lngLatToOverlayPx(lngLat, anchor, scale))
-  ).current;
-
-  useEffect(() => {
-    const { x, y } = lngLatToOverlayPx(lngLat, anchor, scale);
-    Animated.spring(anim, {
-      toValue: { x, y },
-      friction: 7,
-      tension: 42,
-      useNativeDriver: true,
-    }).start();
-  }, [lngLat[0], lngLat[1], anchor, scale, anim]);
-
-  return (
-    <View style={[StyleSheet.absoluteFillObject, styles.expoGoMarkerLayer]}>
-      <Animated.View style={{ transform: anim.getTranslateTransform() }}>
-        <Pressable onPress={onPress} hitSlop={10} style={styles.expoVehicleHit}>
-          {children}
-        </Pressable>
-      </Animated.View>
     </View>
   );
 }
@@ -446,16 +446,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#0A84FF',
     borderWidth: 2.5,
     borderColor: '#FFFFFF',
-  },
-  expoGoMarkerHost: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  expoGoMarkerLayer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  expoVehicleHit: {
-    padding: 4,
   },
   expoGoUserDot: {
     width: 22,

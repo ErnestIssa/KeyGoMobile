@@ -1,6 +1,6 @@
 /**
- * API client — set EXPO_PUBLIC_API_URL to your server origin (e.g. https://your-api.onrender.com), no trailing slash.
- * Requests are sent to `${EXPO_PUBLIC_API_URL}/api/...`.
+ * API client — `EXPO_PUBLIC_API_URL` (EAS secrets / .env) overrides the default production origin.
+ * Requests: `${API_BASE_URL}/api/...` (no trailing slash on origin).
  */
 
 import { clearAuth, getToken, saveAuth } from './authStorage';
@@ -10,7 +10,10 @@ import type { User } from '../types/user';
 export type { User } from '../types/user';
 export type { AppSettings, UserAddress } from '../types/appSettings';
 
-export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+/** Default when `EXPO_PUBLIC_API_URL` is unset (store / EAS builds). Override for local backend only. */
+export const PRODUCTION_API_ORIGIN = 'https://keygo-server.onrender.com';
+
+export const API_BASE_URL = (process.env.EXPO_PUBLIC_API_URL ?? PRODUCTION_API_ORIGIN).replace(/\/$/, '');
 
 export class ApiError extends Error {
   readonly status: number;
@@ -38,7 +41,7 @@ export function buildUrl(path: string): string {
   const segment = path.startsWith('/') ? path : `/${path}`;
   if (!API_BASE_URL) {
     throw new ApiError(
-      'EXPO_PUBLIC_API_URL is not set. Add it in .env (e.g. EXPO_PUBLIC_API_URL=https://your-api.onrender.com).',
+      'API base URL is empty. Set EXPO_PUBLIC_API_URL or use the default production origin.',
       0
     );
   }

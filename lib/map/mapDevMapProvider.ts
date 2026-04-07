@@ -5,8 +5,9 @@
  */
 import { NativeModules } from 'react-native';
 
-/** True when env requests MapLibre and the MapLibre native module is linked. */
+/** True in dev when env requests MapLibre and the native module is linked (never in production store builds). */
 export function shouldUseMapLibreOsmDev(): boolean {
+  if (!__DEV__) return false;
   return process.env.EXPO_PUBLIC_USE_MAPLIBRE === '1' && isMapLibreNativeAvailable();
 }
 

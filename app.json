@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "KeyGoMobile",
-    "slug": "KeyGoMobile",
+    "name": "KeyGo",
+    "slug": "keygo",
     "version": "1.0.0",
     "scheme": "keygo",
     "orientation": "portrait",
