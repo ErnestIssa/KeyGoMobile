@@ -584,10 +584,17 @@ export async function listChatMessages(conversationId: string): Promise<{
 }
 
 /** POST /api/users/push-token — Expo push token + notification opt-in. */
-export async function registerPushToken(expoPushToken: string, notificationsEnabled: boolean): Promise<void> {
+export async function registerPushToken(
+  expoPushToken: string | undefined,
+  notificationsEnabled: boolean
+): Promise<void> {
+  const body: { expoPushToken?: string; notificationsEnabled: boolean } = { notificationsEnabled };
+  if (expoPushToken != null && expoPushToken.trim().length > 0) {
+    body.expoPushToken = expoPushToken.trim();
+  }
   await request('/users/push-token', {
     method: 'POST',
-    body: JSON.stringify({ expoPushToken, notificationsEnabled }),
+    body: JSON.stringify(body),
   });
 }
 

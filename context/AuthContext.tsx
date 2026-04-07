@@ -16,6 +16,7 @@ import {
   switchRole as apiSwitchRole,
   type RegisterPayload,
 } from '../services/api';
+import { disconnectSharedChatSocket } from '../services/chatSocket';
 import { getToken, loadStoredAuth, saveAuth } from '../services/authStorage';
 import type { User } from '../types/user';
 
@@ -73,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await apiLogout();
+    disconnectSharedChatSocket();
     setToken(null);
     setUser(null);
   }, []);

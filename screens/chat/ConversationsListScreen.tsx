@@ -51,6 +51,7 @@ import {
   type ConversationListItem,
   type LastMessageStatus,
 } from '../../services/api';
+import { getSharedChatSocket } from '../../services/chatSocket';
 import { useTheme } from '../../theme/ThemeContext';
 import { FF } from '../../theme/fonts';
 
@@ -528,7 +529,7 @@ function DropdownPanel({
 export function ConversationsListScreen() {
   const { t } = useTheme();
   const { user } = useAuth();
-  const { refreshUnread } = useChatUnread();
+  const { refreshUnread, conversationListVersion } = useChatUnread();
   const topInset = useContentTopInset();
   const scrollPad = useFloatingTabBarBottomInset();
   const navigation = useNavigation<NativeStackNavigationProp<ChatStackParamList>>();
@@ -571,6 +572,12 @@ export function ConversationsListScreen() {
         listChatRecentTrips(),
       ]);
       setConversations(convRes.conversations);
+      const sock = await getSharedChatSocket();
+      if (sock) {
+        for (const c of convRes.conversations) {
+          sock.emit('join_conversation', c.id);
+        }
+      }
       setMatches(matchRes.matches);
       setRecentTrips(tripRes.trips);
       setActivities(tripRes.activities ?? []);
@@ -589,6 +596,11 @@ export function ConversationsListScreen() {
       void load();
     }, [load])
   );
+
+  useEffect(() => {
+    if (conversationListVersion === 0) return;
+    void load();
+  }, [conversationListVersion, load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

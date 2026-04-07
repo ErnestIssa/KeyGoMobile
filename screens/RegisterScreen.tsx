@@ -11,6 +11,7 @@ import { BlurModalScrim } from '../components/ui/BlurModalScrim';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
+import { BrandedLoading } from '../components/ui/BrandedLoading';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation/types';
 import { friendlyErrorMessage } from '../lib/userFacingError';
@@ -26,7 +27,7 @@ type RegisterRoute = RouteProp<AuthStackParamList, 'Register'>;
 export function RegisterScreen({ navigation }: Props) {
   const route = useRoute<RegisterRoute>();
   const preferBusiness = route.params?.preferBusiness ?? false;
-  const { signUp } = useAuth();
+  const { signUp, bootstrapStats } = useAuth();
   const { t } = useTheme();
 
   const [wizardOpen, setWizardOpen] = useState(true);
@@ -339,6 +340,7 @@ export function RegisterScreen({ navigation }: Props) {
   const atLastStep = step === 6;
 
   return (
+    <>
     <KeyboardAvoidingView
       style={styles.kav}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -426,6 +428,12 @@ export function RegisterScreen({ navigation }: Props) {
         </Card>
       </BlurModalScrim>
     </KeyboardAvoidingView>
+    {loading ? (
+      <View style={[StyleSheet.absoluteFillObject, { zIndex: 9999 }]} pointerEvents="auto">
+        <BrandedLoading fullscreen stats={bootstrapStats} showMarketingLines />
+      </View>
+    ) : null}
+    </>
   );
 }
 

@@ -8,6 +8,7 @@ import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Input } from '../components/ui/Input';
+import { BrandedLoading } from '../components/ui/BrandedLoading';
 import { useAuth } from '../context/AuthContext';
 import type { AuthStackParamList } from '../navigation/types';
 import { friendlyErrorMessage } from '../lib/userFacingError';
@@ -19,7 +20,7 @@ import { FF } from '../theme/fonts';
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export function LoginScreen({ navigation }: Props) {
-  const { signIn } = useAuth();
+  const { signIn, bootstrapStats } = useAuth();
   const { t } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,6 +42,7 @@ export function LoginScreen({ navigation }: Props) {
   };
 
   return (
+    <>
     <KeyboardAvoidingView
       style={styles.kav}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -122,6 +124,12 @@ export function LoginScreen({ navigation }: Props) {
         </View>
       </ScreenContainer>
     </KeyboardAvoidingView>
+    {loading ? (
+      <View style={[StyleSheet.absoluteFillObject, { zIndex: 9999 }]} pointerEvents="auto">
+        <BrandedLoading fullscreen stats={bootstrapStats} showMarketingLines />
+      </View>
+    ) : null}
+    </>
   );
 }
 

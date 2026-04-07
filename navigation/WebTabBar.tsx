@@ -13,6 +13,7 @@ import Animated, {
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
@@ -26,6 +27,7 @@ import {
 } from '../components/icons/navIcons';
 import { useAuth } from '../context/AuthContext';
 import { useChatUnread } from '../context/ChatUnreadContext';
+import { subscribeChatTabPulse } from '../services/chatAttention';
 import { hapticSelection } from '../services/haptics';
 import { useTheme } from '../theme/ThemeContext';
 import { FF } from '../theme/fonts';
@@ -257,6 +259,24 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
   const { unreadCount } = useChatUnread();
   const isOwner = user?.role === 'owner';
   const navInteractionLockRef = useRef(false);
+  const chatIconPulse = useSharedValue(1);
+
+  useEffect(() => {
+    return subscribeChatTabPulse(() => {
+      chatIconPulse.value = withSequence(
+        withTiming(0.45, { duration: 140 }),
+        withTiming(1, { duration: 140 }),
+        withTiming(0.45, { duration: 140 }),
+        withTiming(1, { duration: 140 }),
+        withTiming(0.45, { duration: 140 }),
+        withTiming(1, { duration: 140 })
+      );
+    });
+  }, [chatIconPulse]);
+
+  const chatIconPulseStyle = useAnimatedStyle(() => ({
+    opacity: chatIconPulse.value,
+  }));
   const onTabBarHeightChange = useContext(BottomTabBarHeightCallbackContext);
   const chatThreadOpen = isChatThreadOpen(state);
   const hidePill = useSharedValue(chatThreadOpen ? 1 : 0);
@@ -337,7 +357,11 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
         navInteractionLockRef={navInteractionLockRef}
         badgeCount={unreadCount}
         badgeBgColor={t.accent}
-        icon={<IconChat size={ICON_TAB} color={chatActive ? t.brand : t.textMuted} strokeWidth={STROKE_TAB} />}
+        icon={
+          <Animated.View style={chatIconPulseStyle}>
+            <IconChat size={ICON_TAB} color={chatActive ? t.brand : t.textMuted} strokeWidth={STROKE_TAB} />
+          </Animated.View>
+        }
         onPress={() => navigation.navigate('Chat', { screen: 'ConversationsList' })}
       />
       <TabBarItem

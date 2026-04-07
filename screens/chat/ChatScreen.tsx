@@ -50,7 +50,8 @@ import {
   type ChatMessage,
 } from '../../services/api';
 import { resolveChatMediaUrl } from '../../services/mediaUrl';
-import { connectChatSocket } from '../../services/chatSocket';
+import { setActiveChatConversationId } from '../../services/chatPresence';
+import { getSharedChatSocket } from '../../services/chatSocket';
 import { useTheme } from '../../theme/ThemeContext';
 import { FF } from '../../theme/fonts';
 import type { Socket } from 'socket.io-client';
@@ -157,6 +158,10 @@ export function ChatScreen() {
   const [reportTarget, setReportTarget] = useState<ChatMessage | null>(null);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [recordSecs, setRecordSecs] = useState(0);
+  /** Incoming messages received live in this session — rendered bolder. */
+  const [newMessageHighlightIds, setNewMessageHighlightIds] = useState<Record<string, boolean>>({});
+  const [pulsingMessageId, setPulsingMessageId] = useState<string | null>(null);
+  const pulseOpacity = useRef(new Animated.Value(1)).current;
 
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const composerInputRef = useRef<TextInput>(null);
@@ -221,110 +226,112 @@ export function ChatScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      let activeSocket: Socket | null = null;
+      setActiveChatConversationId(conversationId);
       setLoading(true);
       void loadMessages();
       void markConversationRead(conversationId).then(() => void refreshUnread());
 
-      void (async () => {
-        const socket = await connectChatSocket();
-        if (cancelled || !socket) return;
-        activeSocket = socket;
-        socketRef.current = socket;
+      const onConnect = () => {
+        const sock = socketRef.current;
+        if (!sock) return;
+        sock.emit('join_conversation', conversationId);
+        sock.emit('messages_read', { conversationId });
+      };
 
-        const joinRoom = () => {
-          socket.emit('join_conversation', conversationId);
-          socket.emit('messages_read', { conversationId });
-        };
-        if (socket.connected) {
-          joinRoom();
-        } else {
-          socket.on('connect', joinRoom);
+      const onNewMessage = (payload: { message: ChatMessage }) => {
+        const raw = payload?.message;
+        if (!raw) return;
+        const m = normalizeMessage(raw);
+        if (m.conversationId !== conversationId) return;
+        if (m.senderId !== myIdRef.current) {
+          m.isUnread = true;
+          void playIncomingFx();
+          const sock = socketRef.current;
+          sock?.emit('message_delivered', { messageId: m.id });
+          setNewMessageHighlightIds((prev) => ({ ...prev, [m.id]: true }));
+          setPulsingMessageId(m.id);
         }
-
-        const onNewMessage = (payload: { message: ChatMessage }) => {
-          const raw = payload?.message;
-          if (!raw) return;
-          const m = normalizeMessage(raw);
-          if (m.senderId !== myIdRef.current) {
-            m.isUnread = true;
-            void playIncomingFx();
-            socket.emit('message_delivered', { messageId: m.id });
-          }
-          setMessages((prev) => {
-            if (prev.some((x) => x.id === m.id)) return prev;
-            return [...prev, m];
+        setMessages((prev) => {
+          if (prev.some((x) => x.id === m.id)) return prev;
+          return [...prev, m];
+        });
+        if (m.senderId !== myIdRef.current) {
+          void markConversationRead(conversationId).then(() => {
+            void refreshUnread();
+            const sock = socketRef.current;
+            sock?.emit('messages_read', { conversationId });
+            setMessages((prev) =>
+              prev.map((x) => (x.senderId !== myIdRef.current ? { ...x, isUnread: false } : x))
+            );
           });
-          if (m.senderId !== myIdRef.current) {
-            void markConversationRead(conversationId).then(() => {
-              void refreshUnread();
-              socket.emit('messages_read', { conversationId });
-              setMessages((prev) =>
-                prev.map((x) => (x.senderId !== myIdRef.current ? { ...x, isUnread: false } : x))
-              );
-            });
-          }
-        };
+        }
+      };
+
+      const onMessageUpdated = (payload: { message?: ChatMessage }) => {
+        const m = payload?.message;
+        if (!m || m.conversationId !== conversationId) return;
+        setMessages((prev) => mergeUpdated(prev, normalizeMessage(m)));
+      };
+
+      const onMessageDelivery = (payload: { conversationId?: string; messageId?: string }) => {
+        if (!payload || payload.conversationId !== conversationId || !payload.messageId) return;
+        setMessages((prev) =>
+          prev.map((x) =>
+            x.id === payload.messageId && x.senderId === myIdRef.current
+              ? { ...x, deliveryStatus: 'delivered' }
+              : x
+          )
+        );
+      };
+
+      const onMessagesRead = (payload: { conversationId?: string; readerId?: string; readAt?: string }) => {
+        if (!payload || payload.conversationId !== conversationId) return;
+        if (payload.readerId === myIdRef.current) return;
+        const readAt = payload.readAt;
+        if (!readAt) return;
+        setPeerLastReadAt((prev) => {
+          if (!prev) return readAt;
+          return new Date(readAt) > new Date(prev) ? readAt : prev;
+        });
+      };
+
+      const onUserTyping = (payload: { conversationId?: string; userId?: string; isTyping?: boolean }) => {
+        if (!payload || payload.conversationId !== conversationId) return;
+        if (payload.userId === myIdRef.current) return;
+        const typing = Boolean(payload.isTyping);
+        if (peerTypingStopTimerRef.current) clearTimeout(peerTypingStopTimerRef.current);
+        setPeerTyping(typing);
+        if (typing) {
+          peerTypingStopTimerRef.current = setTimeout(() => setPeerTyping(false), 6000);
+        }
+      };
+
+      void (async () => {
+        const socket = await getSharedChatSocket();
+        if (cancelled || !socket) return;
+        socketRef.current = socket;
+        if (socket.connected) onConnect();
+        else socket.on('connect', onConnect);
 
         socket.on('new_message', onNewMessage);
-
-        socket.on('message_updated', (payload: { message?: ChatMessage }) => {
-          const m = payload?.message;
-          if (!m || m.conversationId !== conversationId) return;
-          setMessages((prev) => mergeUpdated(prev, normalizeMessage(m)));
-        });
-
-        socket.on(
-          'message_delivery',
-          (payload: { conversationId?: string; messageId?: string }) => {
-            if (!payload || payload.conversationId !== conversationId || !payload.messageId) return;
-            setMessages((prev) =>
-              prev.map((x) =>
-                x.id === payload.messageId && x.senderId === myIdRef.current
-                  ? { ...x, deliveryStatus: 'delivered' }
-                  : x
-              )
-            );
-          }
-        );
-
-        socket.on(
-          'messages_read',
-          (payload: { conversationId?: string; readerId?: string; readAt?: string }) => {
-            if (!payload || payload.conversationId !== conversationId) return;
-            if (payload.readerId === myIdRef.current) return;
-            const readAt = payload.readAt;
-            if (!readAt) return;
-            setPeerLastReadAt((prev) => {
-              if (!prev) return readAt;
-              return new Date(readAt) > new Date(prev) ? readAt : prev;
-            });
-          }
-        );
-
-        socket.on(
-          'user_typing',
-          (payload: { conversationId?: string; userId?: string; isTyping?: boolean }) => {
-            if (!payload || payload.conversationId !== conversationId) return;
-            if (payload.userId === myIdRef.current) return;
-            const typing = Boolean(payload.isTyping);
-            if (peerTypingStopTimerRef.current) clearTimeout(peerTypingStopTimerRef.current);
-            setPeerTyping(typing);
-            if (typing) {
-              peerTypingStopTimerRef.current = setTimeout(() => setPeerTyping(false), 6000);
-            }
-          }
-        );
+        socket.on('message_updated', onMessageUpdated);
+        socket.on('message_delivery', onMessageDelivery);
+        socket.on('messages_read', onMessagesRead);
+        socket.on('user_typing', onUserTyping);
       })();
 
       return () => {
         cancelled = true;
-        const s = activeSocket ?? socketRef.current;
+        setActiveChatConversationId(null);
+        const s = socketRef.current;
         if (s) {
           s.emit('typing', { conversationId, isTyping: false });
-          s.emit('leave_conversation', conversationId);
-          s.removeAllListeners();
-          s.disconnect();
+          s.off('connect', onConnect);
+          s.off('new_message', onNewMessage);
+          s.off('message_updated', onMessageUpdated);
+          s.off('message_delivery', onMessageDelivery);
+          s.off('messages_read', onMessagesRead);
+          s.off('user_typing', onUserTyping);
         }
         socketRef.current = null;
         if (typingEmitTimerRef.current) clearTimeout(typingEmitTimerRef.current);
@@ -333,6 +340,28 @@ export function ChatScreen() {
       };
     }, [conversationId, loadMessages, refreshUnread, playIncomingFx])
   );
+
+  useEffect(() => {
+    setNewMessageHighlightIds({});
+    setPulsingMessageId(null);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!pulsingMessageId) return;
+    pulseOpacity.setValue(1);
+    const steps: Animated.CompositeAnimation[] = [];
+    for (let i = 0; i < 3; i++) {
+      steps.push(
+        Animated.timing(pulseOpacity, { toValue: 0.58, duration: 150, useNativeDriver: true }),
+        Animated.timing(pulseOpacity, { toValue: 1, duration: 150, useNativeDriver: true })
+      );
+    }
+    const seq = Animated.sequence(steps);
+    seq.start(({ finished }) => {
+      if (finished) setPulsingMessageId(null);
+    });
+    return () => seq.stop();
+  }, [pulsingMessageId, pulseOpacity]);
 
   myIdRef.current = user?.id ?? '';
 
@@ -647,6 +676,10 @@ export function ChatScreen() {
               ? '#fbcfe8'
               : 'rgba(255,255,255,0.75)';
 
+      const incomingBold = !mine && Boolean(newMessageHighlightIds[item.id]);
+      const showPulse = !mine && pulsingMessageId === item.id;
+      const BubbleShell = showPulse ? Animated.View : View;
+
       const bubble = (
         <Pressable
           onLongPress={async () => {
@@ -656,7 +689,7 @@ export function ChatScreen() {
           delayLongPress={380}
           style={({ pressed }) => [pressed && { opacity: 0.92 }]}
         >
-          <View
+          <BubbleShell
             style={[
               styles.bubble,
               mine ? { backgroundColor: t.brand } : {
@@ -664,6 +697,7 @@ export function ChatScreen() {
                 borderWidth: StyleSheet.hairlineWidth,
                 borderColor: item.isUnread && !mine ? t.brand : t.border,
               },
+              showPulse ? { opacity: pulseOpacity } : undefined,
             ]}
           >
             {item.replyToPreview ? (
@@ -691,25 +725,48 @@ export function ChatScreen() {
               />
             ) : null}
             {item.kind === 'video' && item.mediaUrl ? (
-              <Text style={{ color: mine ? '#fff' : t.text, fontFamily: FF.semibold, marginBottom: 4 }}>🎬 Video</Text>
+              <Text
+                style={{
+                  color: mine ? '#fff' : t.text,
+                  fontFamily: incomingBold && !mine ? FF.bold : FF.semibold,
+                  marginBottom: 4,
+                }}
+              >
+                🎬 Video
+              </Text>
             ) : null}
             {item.kind === 'file' ? (
-              <Text style={{ color: mine ? '#fff' : t.brand, fontFamily: FF.semibold, marginBottom: 4 }}>
+              <Text
+                style={{
+                  color: mine ? '#fff' : t.brand,
+                  fontFamily: incomingBold && !mine ? FF.bold : FF.semibold,
+                  marginBottom: 4,
+                }}
+              >
                 📎 {item.fileName ?? 'File'}
               </Text>
             ) : null}
             {item.kind === 'audio' ? (
-              <Text style={{ color: mine ? '#fff' : t.text, fontFamily: FF.regular }}>
+              <Text
+                style={{ color: mine ? '#fff' : t.text, fontFamily: incomingBold && !mine ? FF.bold : FF.regular }}
+              >
                 🎤 Voice · {item.durationSec ? `${item.durationSec}s` : 'Audio'}
               </Text>
             ) : null}
             {item.kind === 'call' ? (
-              <Text style={{ color: mine ? '#fff' : t.text, fontFamily: FF.semibold }}>{item.text}</Text>
+              <Text
+                style={{
+                  color: mine ? '#fff' : t.text,
+                  fontFamily: incomingBold ? FF.bold : FF.semibold,
+                }}
+              >
+                {item.text}
+              </Text>
             ) : (
               <Text
                 style={{
                   color: mine ? '#fff' : t.text,
-                  fontFamily: FF.regular,
+                  fontFamily: incomingBold ? FF.bold : FF.regular,
                   fontSize: 15,
                   lineHeight: 21,
                 }}
@@ -760,7 +817,7 @@ export function ChatScreen() {
                 ) : null}
               </View>
             ) : null}
-          </View>
+          </BubbleShell>
         </Pressable>
       );
 
@@ -830,7 +887,17 @@ export function ChatScreen() {
         </ReanimatedSwipeable>
       );
     },
-    [messages, myId, peerLastReadAt, t, user, focusComposer]
+    [
+      messages,
+      myId,
+      peerLastReadAt,
+      t,
+      user,
+      focusComposer,
+      newMessageHighlightIds,
+      pulsingMessageId,
+      pulseOpacity,
+    ]
   );
 
   return (
