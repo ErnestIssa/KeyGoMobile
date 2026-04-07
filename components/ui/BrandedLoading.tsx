@@ -1,7 +1,8 @@
 /**
- * KeyGo branded loader — animated car-key mark + pulse ring + bouncing dots + rotating marketing lines.
+ * KeyGo branded loader — animated car-key mark + pulse ring + bouncing dots.
+ * Optional rotating taglines only for session bootstrap (see `showMarketingLines`).
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
@@ -20,7 +21,8 @@ import { FF } from '../../theme/fonts';
 
 const LOGO_SIZE = 72;
 const LOGO_STROKE = 1.55;
-const LINE_INTERVAL_MS = 2800;
+/** Time each marketing line stays on screen before advancing. */
+export const MARKETING_LINE_INTERVAL_MS = 2800;
 
 function BouncingDot({ color, delayMs }: { color: string; delayMs: number }) {
   const y = useSharedValue(0);
@@ -44,8 +46,18 @@ function BouncingDot({ color, delayMs }: { color: string; delayMs: number }) {
 type Props = {
   /** Full canvas background + centered (boot, overlays). */
   fullscreen?: boolean;
-  /** Live counts from GET /api/public/bootstrap — enriches rotating lines. */
+  /** Live counts from GET /api/public/bootstrap — enriches rotating lines when `showMarketingLines`. */
   stats?: { userCount: number; tripCount: number } | null;
+  /**
+   * When true, shows rotating lines under the logo (session bootstrap only).
+   * Overlays and in-screen loading use the logo only — no copy below.
+   */
+  showMarketingLines?: boolean;
+  /**
+   * Fired once after every line has been shown for one interval (one full loop).
+   * Used so the auth gate can wait for a full rotation before Login/Register.
+   */
+  onMarketingCycleComplete?: () => void;
 };
 
 function useMarketingLines(stats: { userCount: number; tripCount: number } | null | undefined) {
@@ -57,7 +69,6 @@ function useMarketingLines(stats: { userCount: number; tripCount: number } | nul
     return [
       'Preparing your workspace…',
       'Making sure routes and safety checks are ready…',
-      'Remember: KeyGo is vehicle relocation — not a taxi.',
       u > 0 ? `${uStr} drivers and owners on KeyGo` : 'Join drivers and owners who trust KeyGo',
       tr > 0 ? `${trStr} relocations logged` : 'Your trips sync securely with the cloud',
       'Syncing preferences and notifications…',
@@ -66,7 +77,12 @@ function useMarketingLines(stats: { userCount: number; tripCount: number } | nul
   }, [stats]);
 }
 
-export function BrandedLoading({ fullscreen, stats }: Props) {
+export function BrandedLoading({
+  fullscreen,
+  stats,
+  showMarketingLines = false,
+  onMarketingCycleComplete,
+}: Props) {
   const { t } = useTheme();
   const breathe = useSharedValue(0);
   const tilt = useSharedValue(0);
@@ -126,11 +142,31 @@ export function BrandedLoading({ fullscreen, stats }: Props) {
   const [lineIndex, setLineIndex] = useState(0);
 
   useEffect(() => {
+    if (!showMarketingLines || lines.length === 0) return;
     const id = setInterval(() => {
       setLineIndex((i) => (i + 1) % lines.length);
-    }, LINE_INTERVAL_MS);
+    }, MARKETING_LINE_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [lines.length]);
+  }, [showMarketingLines, lines.length]);
+
+  const onCycleRef = useRef(onMarketingCycleComplete);
+  onCycleRef.current = onMarketingCycleComplete;
+  const cycleFiredRef = useRef(false);
+
+  useEffect(() => {
+    cycleFiredRef.current = false;
+  }, [showMarketingLines, lines.length]);
+
+  useEffect(() => {
+    if (!showMarketingLines || lines.length === 0) return;
+    const ms = lines.length * MARKETING_LINE_INTERVAL_MS;
+    const id = setTimeout(() => {
+      if (cycleFiredRef.current) return;
+      cycleFiredRef.current = true;
+      onCycleRef.current?.();
+    }, ms);
+    return () => clearTimeout(id);
+  }, [showMarketingLines, lines.length]);
 
   const core = (
     <View style={styles.core}>
@@ -146,11 +182,13 @@ export function BrandedLoading({ fullscreen, stats }: Props) {
         <BouncingDot color={t.accent} delayMs={120} />
         <BouncingDot color={t.accent} delayMs={240} />
       </View>
-      <Animated.View key={lineIndex} entering={FadeIn.duration(420)} style={styles.marketingWrap}>
-        <Text style={[styles.marketingLine, { color: t.textMuted, fontFamily: FF.regular }]} numberOfLines={3}>
-          {lines[lineIndex]}
-        </Text>
-      </Animated.View>
+      {showMarketingLines ? (
+        <Animated.View key={lineIndex} entering={FadeIn.duration(420)} style={styles.marketingWrap}>
+          <Text style={[styles.marketingLine, { color: t.textMuted, fontFamily: FF.regular }]} numberOfLines={3}>
+            {lines[lineIndex]}
+          </Text>
+        </Animated.View>
+      ) : null}
     </View>
   );
 

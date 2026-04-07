@@ -27,6 +27,11 @@ export type AppSettings = {
     messageSounds: boolean;
     voiceGuidance: boolean;
   };
+  safety: {
+    pinVerificationEnabled: boolean;
+    followMyTripEnabled: boolean;
+    tripCheckNotificationsEnabled: boolean;
+  };
 };
 
 export type UserAddress = {
@@ -47,4 +52,5 @@ export type PatchAppSettings = {
   communication?: Partial<AppSettings['communication']>;
   navigation?: Partial<AppSettings['navigation']>;
   soundsVoice?: Partial<AppSettings['soundsVoice']>;
+  safety?: Partial<AppSettings['safety']>;
 };

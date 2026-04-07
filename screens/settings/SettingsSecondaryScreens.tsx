@@ -38,6 +38,11 @@ function defaultSettings(): AppSettings {
     communication: { email: true, push: true, sms: false },
     navigation: { preferredMaps: 'google' },
     soundsVoice: { messageSounds: true, voiceGuidance: false },
+    safety: {
+      pinVerificationEnabled: true,
+      followMyTripEnabled: false,
+      tripCheckNotificationsEnabled: true,
+    },
   };
 }
 

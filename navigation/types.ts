@@ -34,6 +34,11 @@ export type ProfileStackParamList = {
   SettingsCommunication: undefined;
   SettingsNavigationPrefs: undefined;
   SettingsSoundsVoice: undefined;
+  SafetyHome: undefined;
+  SafetyResource: { kind: 'learning' | 'insurance' | 'driver' };
+  HelpHome: undefined;
+  HelpTopic: { topicId: string };
+  Inbox: { initialTab?: 'notifications' | 'support' } | undefined;
 };
 
 export type ChatStackParamList = {

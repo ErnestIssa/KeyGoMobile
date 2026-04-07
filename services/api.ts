@@ -211,6 +211,31 @@ export async function patchUserAddress(patch: Partial<UserAddress>): Promise<{ u
   });
 }
 
+export type InboxMessage = {
+  id: string;
+  channel: 'notifications' | 'support';
+  title: string;
+  body: string;
+  read: boolean;
+  fromSupport: boolean;
+  createdAt: string;
+};
+
+export async function getInbox(): Promise<{ notifications: InboxMessage[]; support: InboxMessage[] }> {
+  return request<{ notifications: InboxMessage[]; support: InboxMessage[] }>('/users/inbox', { method: 'GET' });
+}
+
+export async function postSupportInboxMessage(body: string): Promise<{ message: InboxMessage }> {
+  return request<{ message: InboxMessage }>('/users/inbox/support', {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  });
+}
+
+export async function markInboxMessageRead(id: string): Promise<{ message: InboxMessage }> {
+  return request<{ message: InboxMessage }>(`/users/inbox/${encodeURIComponent(id)}/read`, { method: 'PATCH' });
+}
+
 /** PATCH /api/users/role — `{ role: "owner" | "driver" }`; returns new JWT + user */
 export async function switchRole(role: 'owner' | 'driver'): Promise<AuthResponse> {
   const data = await request<AuthResponse>('/users/role', {

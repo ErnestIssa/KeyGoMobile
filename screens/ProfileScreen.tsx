@@ -125,8 +125,6 @@ export function ProfileScreen() {
   const [avatarCacheKey, setAvatarCacheKey] = useState(0);
   /** Show picker file:// immediately while upload runs (avoids blank if remote URL is slow or cache-stale). */
   const [avatarLocalUri, setAvatarLocalUri] = useState<string | null>(null);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [safetyOpen, setSafetyOpen] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const [roleModalOpen, setRoleModalOpen] = useState(false);
@@ -219,39 +217,15 @@ export function ProfileScreen() {
   const cx = ringSize / 2;
   const rOuter = AVATAR / 2 + RING - 1;
 
-  const scrollLocked = helpOpen || safetyOpen || signOutOpen || avatarEditorOpen || roleModalOpen;
+  const scrollLocked = signOutOpen || avatarEditorOpen || roleModalOpen;
 
   return (
     <ScreenContainer align="stretch" scrollEnabled={!scrollLocked}>
       <Animated.View entering={FadeInDown.duration(260)} style={styles.topRow}>
-        <TopChip label="Help" icon="❓" onPress={() => setHelpOpen(true)} t={t} />
-        <TopChip label="Safety" icon="🛡" onPress={() => setSafetyOpen(true)} t={t} />
+        <TopChip label="Help" icon="❓" onPress={() => navigation.navigate('HelpHome')} t={t} />
+        <TopChip label="Safety" icon="🛡" onPress={() => navigation.navigate('SafetyHome')} t={t} />
         <TopChip label="Settings" icon="⚙" onPress={() => navigation.navigate('SettingsHome')} t={t} />
       </Animated.View>
-
-      <BlurModalScrim visible={helpOpen} onRequestClose={() => setHelpOpen(false)}>
-        <View style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]}>
-          <Text style={[styles.modalTitle, { color: t.text }]}>Help</Text>
-          <Text style={[styles.modalBody, { color: t.textMuted }]}>
-            Browse FAQs, contact support, and troubleshoot trips. Full in-app help is coming soon — for now use your trip screens and account email for support.
-          </Text>
-          <Button variant="secondary" onPress={() => setHelpOpen(false)}>
-            Close
-          </Button>
-        </View>
-      </BlurModalScrim>
-
-      <BlurModalScrim visible={safetyOpen} onRequestClose={() => setSafetyOpen(false)}>
-        <View style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]}>
-          <Text style={[styles.modalTitle, { color: t.text }]}>Safety</Text>
-          <Text style={[styles.modalBody, { color: t.textMuted }]}>
-            Meet in public places when handing off keys, verify driver identity, and report issues immediately. We are building trust and safety tools into every trip.
-          </Text>
-          <Button variant="secondary" onPress={() => setSafetyOpen(false)}>
-            Close
-          </Button>
-        </View>
-      </BlurModalScrim>
 
       <BlurModalScrim visible={signOutOpen} onRequestClose={() => setSignOutOpen(false)}>
         <View style={[styles.modalCard, { backgroundColor: t.bgElevated, borderColor: t.border }]}>

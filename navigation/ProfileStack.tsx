@@ -2,6 +2,11 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ProfileSectionScreen } from '../screens/ProfileSectionScreen';
 import { UserProfileScreen } from '../screens/UserProfileScreen';
+import { HelpHomeScreen } from '../screens/help/HelpHomeScreen';
+import { HelpTopicScreen } from '../screens/help/HelpTopicScreen';
+import { InboxScreen } from '../screens/help/InboxScreen';
+import { SafetyHomeScreen } from '../screens/safety/SafetyHomeScreen';
+import { SafetyResourceScreen } from '../screens/safety/SafetyResourceScreen';
 import { SettingsHomeScreen } from '../screens/settings/SettingsHomeScreen';
 import {
   AccessibilitySettingsScreen,
@@ -40,6 +45,11 @@ export function ProfileStack() {
       <Stack.Screen name="SettingsCommunication" component={CommunicationSettingsScreen} />
       <Stack.Screen name="SettingsNavigationPrefs" component={NavigationPrefsSettingsScreen} />
       <Stack.Screen name="SettingsSoundsVoice" component={SoundsVoiceSettingsScreen} />
+      <Stack.Screen name="SafetyHome" component={SafetyHomeScreen} />
+      <Stack.Screen name="SafetyResource" component={SafetyResourceScreen} />
+      <Stack.Screen name="HelpHome" component={HelpHomeScreen} />
+      <Stack.Screen name="HelpTopic" component={HelpTopicScreen} />
+      <Stack.Screen name="Inbox" component={InboxScreen} />
     </Stack.Navigator>
   );
 }
