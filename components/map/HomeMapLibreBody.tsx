@@ -33,7 +33,8 @@ type Props = {
   selectedVehicle: import('../../services/api').VehiclePositionRow | null;
 };
 
-export function HomeMapLibreBody({
+/** Default export enables `React.lazy` in HomeScreen so Expo Go never loads `@maplibre/maplibre-react-native` until the dev build path runs. */
+export default function HomeMapLibreBody({
   coordinate,
   fleet,
   brandColor,

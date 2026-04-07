@@ -7,6 +7,8 @@
  */
 import * as Location from 'expo-location';
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -15,9 +17,8 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Animated, NativeModules, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Animated, NativeModules, Pressable, StyleSheet, View } from 'react-native';
 import { IconKeyGoLogo } from '../components/icons/navIcons';
-import { HomeMapLibreBody } from '../components/map/HomeMapLibreBody';
 import { MapHomeControls, type MapVisualMode } from '../components/map/MapHomeControls';
 import { MapPlaceholder } from '../components/map/MapPlaceholder';
 import { MapVehicleInfoCard } from '../components/map/MapVehicleInfoCard';
@@ -28,6 +29,13 @@ import { markerTapFeedback } from '../lib/map/markerTapFeedback';
 import { shouldUseMapLibreOsmDev } from '../lib/map/mapDevMapProvider';
 import { TRACKABLE_USER_ID } from '../lib/map/tracking';
 import { useTheme } from '../theme/ThemeContext';
+
+/**
+ * Lazy so `@maplibre/maplibre-react-native` is never `require`d in Expo Go (no native module there).
+ * Only loads when `shouldUseMapLibreOsmDev()` is true (dev build + EXPO_PUBLIC_USE_MAPLIBRE=1).
+ */
+const HomeMapLibreBodyLazy = lazy(() => import('../components/map/HomeMapLibreBody'));
+
 /** Mapbox `centerCoordinate` / `PointAnnotation`: `[longitude, latitude]` — Stockholm default. */
 const STOCKHOLM_CENTER: [number, number] = [18.0686, 59.3293];
 const DEFAULT_ZOOM = 12;
@@ -88,16 +96,24 @@ export function HomeScreen() {
 
   if (shouldUseMapLibreOsmDev()) {
     return (
-      <HomeMapLibreBody
-        coordinate={location.coordinate}
-        fleet={fleet}
-        brandColor={t.brand}
-        mapVisualMode={mapVisualMode}
-        trafficEnabled={trafficEnabled}
-        onToggleMapVisualMode={toggleMapVisualMode}
-        onToggleTraffic={() => setTrafficEnabled((x) => !x)}
-        selectedVehicle={selectedVehicle}
-      />
+      <Suspense
+        fallback={
+          <View style={[styles.fill, { backgroundColor: t.bgPage, justifyContent: 'center', alignItems: 'center' }]}>
+            <ActivityIndicator color={t.brand} />
+          </View>
+        }
+      >
+        <HomeMapLibreBodyLazy
+          coordinate={location.coordinate}
+          fleet={fleet}
+          brandColor={t.brand}
+          mapVisualMode={mapVisualMode}
+          trafficEnabled={trafficEnabled}
+          onToggleMapVisualMode={toggleMapVisualMode}
+          onToggleTraffic={() => setTrafficEnabled((x) => !x)}
+          selectedVehicle={selectedVehicle}
+        />
+      </Suspense>
     );
   }
 
