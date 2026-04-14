@@ -27,6 +27,7 @@ import ReanimatedSwipeable, {
 import { BlurView } from 'expo-blur';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { ChatAvatar } from '../../components/chat/ChatAvatar';
+import { TypingDots } from '../../components/chat/TypingDots';
 import { Button } from '../../components/ui/Button';
 import { BlurModalScrim } from '../../components/ui/BlurModalScrim';
 import { Card } from '../../components/ui/Card';
@@ -51,7 +52,7 @@ import {
   type ConversationListItem,
   type LastMessageStatus,
 } from '../../services/api';
-import { getSharedChatSocket } from '../../services/chatSocket';
+import { getSharedChatSocket, syncChatConversationRooms } from '../../services/chatSocket';
 import { useTheme } from '../../theme/ThemeContext';
 import { FF } from '../../theme/fonts';
 
@@ -59,13 +60,13 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const PANEL_OPEN_MS = 950;
-/** Longer collapse so the panel motion reads clearly after content is hidden. */
-const PANEL_CLOSE_MS = 780;
-const PANEL_OPEN_FADE_MS = Math.round(PANEL_OPEN_MS * 0.35);
-const PANEL_EASING = Easing.bezier(0.22, 1, 0.36, 1);
-/** Smooth deceleration — visible “flow” as height reaches zero. */
-const PANEL_CLOSE_HEIGHT_EASING = Easing.bezier(0.33, 0.86, 0.45, 1);
+/**
+ * Single duration for open + close so the dropdown feels like one control (aligned with chat composer / button timing feel).
+ */
+const DROPDOWN_MS = 320;
+/** Open: slight ease-out. Close: ease-in so collapse starts immediately and stays in sync with opacity. */
+const DROPDOWN_EASING_OPEN = Easing.bezier(0.33, 0.01, 0.25, 1);
+const DROPDOWN_EASING_CLOSE = Easing.bezier(0.4, 0, 1, 1);
 /** Inset matches ScrollView horizontal padding — card aligns with dropdowns; swipe track bleeds past */
 const CARD_H_INSET = 16;
 const CONV_CARD_GAP = 10;
@@ -114,11 +115,13 @@ function ConversationCardContent({
   t,
   cardBg,
   previewLines = 2,
+  isPeerTyping = false,
 }: {
   c: ConversationListItem;
   t: ThemeT;
   cardBg: string;
   previewLines?: number;
+  isPeerTyping?: boolean;
 }) {
   const settings = c.mySettings;
   const st = lastStatusMeta(c.lastMessageStatus, t);
@@ -157,7 +160,12 @@ function ConversationCardContent({
               {settings.listTag}
             </Text>
           ) : null}
-          {c.lastMessagePreview ? (
+          {isPeerTyping ? (
+            <View style={[styles.convTypingRow, { marginTop: 6 }]}>
+              <TypingDots color={t.brand} dotSize={5} gap={5} />
+              <Text style={{ color: t.textMuted, fontFamily: FF.regular, fontSize: 13, marginLeft: 8 }}>typing</Text>
+            </View>
+          ) : c.lastMessagePreview ? (
             <Text
               style={{ color: t.textMuted, fontFamily: FF.regular, marginTop: 6, fontSize: 14 }}
               numberOfLines={previewLines}
@@ -167,7 +175,7 @@ function ConversationCardContent({
           ) : (
             <Text style={{ color: t.textMuted, fontFamily: FF.regular, marginTop: 6, fontSize: 13 }}>No messages yet</Text>
           )}
-          {st.label ? (
+          {!isPeerTyping && st.label ? (
             <View style={styles.convCardStatusRow}>
               <Text style={{ color: st.color, fontFamily: FF.semibold, fontSize: 11 }}>{st.label}</Text>
             </View>
@@ -344,7 +352,7 @@ function RightSwipeAction({
   );
 }
 
-/** Height animates smoothly; inner opacity hides instantly on close so only the shell moves. */
+/** Height + opacity animate together so open/close stay visually linked (no instant content wipe on close). */
 function SmoothCollapse({ expanded, children, t }: { expanded: boolean; children: ReactNode; t: { border: string } }) {
   const heightT = useRef(new Animated.Value(expanded ? 1 : 0)).current;
   const opacityT = useRef(new Animated.Value(expanded ? 1 : 0)).current;
@@ -352,30 +360,21 @@ function SmoothCollapse({ expanded, children, t }: { expanded: boolean; children
   useEffect(() => {
     heightT.stopAnimation();
     opacityT.stopAnimation();
-    if (expanded) {
-      Animated.parallel([
-        Animated.timing(heightT, {
-          toValue: 1,
-          duration: PANEL_OPEN_MS,
-          easing: PANEL_EASING,
-          useNativeDriver: false,
-        }),
-        Animated.timing(opacityT, {
-          toValue: 1,
-          duration: PANEL_OPEN_FADE_MS,
-          easing: PANEL_EASING,
-          useNativeDriver: false,
-        }),
-      ]).start();
-    } else {
-      opacityT.setValue(0);
+    const easing = expanded ? DROPDOWN_EASING_OPEN : DROPDOWN_EASING_CLOSE;
+    Animated.parallel([
       Animated.timing(heightT, {
-        toValue: 0,
-        duration: PANEL_CLOSE_MS,
-        easing: PANEL_CLOSE_HEIGHT_EASING,
+        toValue: expanded ? 1 : 0,
+        duration: DROPDOWN_MS,
+        easing,
         useNativeDriver: false,
-      }).start();
-    }
+      }),
+      Animated.timing(opacityT, {
+        toValue: expanded ? 1 : 0,
+        duration: DROPDOWN_MS,
+        easing,
+        useNativeDriver: false,
+      }),
+    ]).start();
   }, [expanded, heightT, opacityT]);
 
   const maxH = heightT.interpolate({ inputRange: [0, 1], outputRange: [0, 8000] });
@@ -398,6 +397,7 @@ const ConversationSwipeRow = memo(function ConversationSwipeRow({
   c,
   t,
   cardBg,
+  isPeerTyping,
   onOpenThread,
   onProfile,
   onDeleteRequest,
@@ -408,6 +408,7 @@ const ConversationSwipeRow = memo(function ConversationSwipeRow({
   c: ConversationListItem;
   t: ThemeT;
   cardBg: string;
+  isPeerTyping: boolean;
   onOpenThread: (conversationId: string, peer: { id: string; name: string; displayName?: string; avatarUrl?: string }) => void;
   onProfile: (userId: string) => void;
   onDeleteRequest: (row: ConversationListItem) => void;
@@ -487,7 +488,7 @@ const ConversationSwipeRow = memo(function ConversationSwipeRow({
           delayLongPress={420}
           style={({ pressed }) => [pressed && { opacity: 0.96 }]}
         >
-          <ConversationCardContent c={c} t={t} cardBg={cardBg} />
+          <ConversationCardContent c={c} t={t} cardBg={cardBg} isPeerTyping={isPeerTyping} />
         </Pressable>
       </ReanimatedSwipeable>
     </View>
@@ -508,6 +509,23 @@ function DropdownPanel({
   children: ReactNode;
   t: ReturnType<typeof useTheme>['t'];
 }) {
+  const chevronTurn = useRef(new Animated.Value(expanded ? 1 : 0)).current;
+
+  useEffect(() => {
+    const easing = expanded ? DROPDOWN_EASING_OPEN : DROPDOWN_EASING_CLOSE;
+    Animated.timing(chevronTurn, {
+      toValue: expanded ? 1 : 0,
+      duration: DROPDOWN_MS,
+      easing,
+      useNativeDriver: true,
+    }).start();
+  }, [expanded, chevronTurn]);
+
+  const chevronRotate = chevronTurn.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '180deg'],
+  });
+
   return (
     <View style={[styles.dropdownPanel, { borderColor: t.border, backgroundColor: t.bgElevated }]}>
       <Pressable
@@ -517,9 +535,9 @@ function DropdownPanel({
         style={({ pressed }) => [styles.dropdownHeaderInner, pressed && { opacity: 0.92 }]}
       >
         <Text style={[styles.dropdownTitle, { color: t.text, fontFamily: FF.semibold }]}>{title}</Text>
-        <View style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}>
+        <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
           <Ionicons name="chevron-down" size={22} color={t.textMuted} />
-        </View>
+        </Animated.View>
       </Pressable>
       <SmoothCollapse expanded={expanded} t={t}>
         <View style={styles.dropdownBodyInner}>{children}</View>
@@ -531,7 +549,14 @@ function DropdownPanel({
 export function ConversationsListScreen() {
   const { t } = useTheme();
   const { user } = useAuth();
-  const { refreshUnread, conversationListVersion } = useChatUnread();
+  const {
+    refreshUnread,
+    conversationListOverlayRev,
+    peerTypingByConversationId,
+    mergeConversationListItem,
+    clearConversationListOverlays,
+    syncConversationLastSendersFromList,
+  } = useChatUnread();
   const topInset = useContentTopInset();
   const scrollPad = useFloatingTabBarBottomInset();
   const navigation = useNavigation<NativeStackNavigationProp<ChatStackParamList>>();
@@ -574,11 +599,11 @@ export function ConversationsListScreen() {
         listChatRecentTrips(),
       ]);
       setConversations(convRes.conversations);
+      syncConversationLastSendersFromList(convRes.conversations);
+      clearConversationListOverlays();
       const sock = await getSharedChatSocket();
       if (sock) {
-        for (const c of convRes.conversations) {
-          sock.emit('join_conversation', c.id);
-        }
+        syncChatConversationRooms(convRes.conversations.map((c) => c.id));
       }
       setMatches(matchRes.matches);
       setRecentTrips(tripRes.trips);
@@ -590,7 +615,7 @@ export function ConversationsListScreen() {
       setRefreshing(false);
     }
     void refreshUnread();
-  }, [refreshUnread, includeArchived]);
+  }, [refreshUnread, includeArchived, syncConversationLastSendersFromList, clearConversationListOverlays]);
 
   useFocusEffect(
     useCallback(() => {
@@ -598,11 +623,6 @@ export function ConversationsListScreen() {
       void load();
     }, [load])
   );
-
-  useEffect(() => {
-    if (conversationListVersion === 0) return;
-    void load();
-  }, [conversationListVersion, load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -613,10 +633,30 @@ export function ConversationsListScreen() {
     () => (user?.id ? matches.filter((m) => m.user.id !== user.id) : matches),
     [matches, user?.id]
   );
-  const displayConversations = useMemo(
-    () => (user?.id ? conversations.filter((c) => c.otherUserId !== user.id) : conversations),
-    [conversations, user?.id]
-  );
+  const displayConversations = useMemo(() => {
+    const filtered = user?.id ? conversations.filter((c) => c.otherUserId !== user.id) : conversations;
+    const merged = filtered.map((c) => mergeConversationListItem(c));
+    return merged.sort((a, b) => {
+      const fa = Boolean(a.mySettings?.favorite);
+      const fb = Boolean(b.mySettings?.favorite);
+      if (fa !== fb) {
+        return fa ? -1 : 1;
+      }
+      const at = a.lastMessageAt ?? '';
+      const bt = b.lastMessageAt ?? '';
+      return bt.localeCompare(at);
+    });
+  }, [conversations, user?.id, mergeConversationListItem, conversationListOverlayRev]);
+
+  /** Trip matches only — hide anyone you already have a thread with (or any convo list row / server conversation id). */
+  const peopleDropdownMatches = useMemo(() => {
+    const peerIdsInConversations = new Set(displayConversations.map((c) => c.otherUserId));
+    return displayMatches.filter((m) => {
+      if (m.conversationId != null) return false;
+      if (peerIdsInConversations.has(m.user.id)) return false;
+      return true;
+    });
+  }, [displayMatches, displayConversations]);
 
   const openThread = (
     conversationId: string,
@@ -711,6 +751,17 @@ export function ConversationsListScreen() {
         summary: `${statusLabel[trip.status] ?? trip.status} · ${trip.pickupLocation} → ${trip.dropoffLocation}`,
       }));
 
+  const hasActivityDropdown = activityRows.length > 0;
+
+  useEffect(() => {
+    if (loading) return;
+    if (peopleDropdownMatches.length > 0) return;
+    setOpenChatPanel((prev) => {
+      if (prev !== 'people') return prev;
+      return hasActivityDropdown ? 'activity' : null;
+    });
+  }, [loading, peopleDropdownMatches.length, hasActivityDropdown]);
+
   const cardBg = t.bgElevated;
 
   return (
@@ -762,14 +813,14 @@ export function ConversationsListScreen() {
           </DropdownPanel>
         ) : null}
 
-        {!loading && displayMatches.length > 0 ? (
+        {!loading && peopleDropdownMatches.length > 0 ? (
           <DropdownPanel
             title="People you can message"
             expanded={openChatPanel === 'people'}
             onToggle={togglePeoplePanel}
             t={t}
           >
-            {displayMatches.map((m) => (
+            {peopleDropdownMatches.map((m) => (
               <Card
                 key={m.user.id}
                 style={{ ...styles.rowCard, borderColor: t.border, backgroundColor: t.bgElevated, marginBottom: 10 }}
@@ -781,7 +832,7 @@ export function ConversationsListScreen() {
                       {m.user.displayName ?? m.user.name}
                     </Text>
                     <Text style={{ color: t.textMuted, fontFamily: FF.regular, fontSize: 12, marginTop: 2 }}>
-                      {m.conversationId ? 'Tap to continue' : 'Matched on a trip'}
+                      Open to start conversation
                     </Text>
                   </View>
                   <Button
@@ -794,14 +845,14 @@ export function ConversationsListScreen() {
                           displayName: m.user.displayName,
                           avatarUrl: m.user.avatarUrl,
                         },
-                        m.conversationId
+                        null
                       )
                     }
                     disabled={startingId === m.user.id}
                     loading={startingId === m.user.id}
                     variant="primary"
                   >
-                    {m.conversationId ? 'Open' : 'Message'}
+                    Message
                   </Button>
                 </View>
               </Card>
@@ -832,6 +883,7 @@ export function ConversationsListScreen() {
                   c={c}
                   t={t}
                   cardBg={cardBg}
+                  isPeerTyping={Boolean(peerTypingByConversationId[c.id])}
                   swipeRegistry={swipeRegistry}
                   closeOthers={closeOthers}
                   onOpenThread={openThread}
@@ -1108,6 +1160,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
     marginTop: 6,
+  },
+  convTypingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   statusIcons: {
     flexDirection: 'row',

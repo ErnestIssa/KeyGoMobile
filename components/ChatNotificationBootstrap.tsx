@@ -13,7 +13,7 @@ import {
   initChatPresenceAppState,
   setPushNotificationsAllowed,
 } from '../services/chatPresence';
-import { playNotify } from '../services/sounds';
+import { playChatMessageIncoming } from '../services/sounds';
 
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
@@ -112,8 +112,11 @@ export function ChatNotificationBootstrap() {
       const isChat =
         Boolean(cid) || (typeof title === 'string' && title.toLowerCase().includes('message'));
       if (!isChat || !getAppInForeground()) return;
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      void playNotify();
+      if (cid && getActiveChatConversationId() === cid) {
+        return;
+      }
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      void playChatMessageIncoming();
     });
     return () => sub.remove();
   }, []);

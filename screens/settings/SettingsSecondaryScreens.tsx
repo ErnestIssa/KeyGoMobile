@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, TextInput, useColorScheme, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, useColorScheme, View } from 'react-native';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { ThemedSwitch } from '../../components/ui/ThemedSwitch';
 import { useAuth } from '../../context/AuthContext';
 import { patchUserAddress, patchUserSettings } from '../../services/api';
 import { friendlyErrorMessage } from '../../lib/userFacingError';
@@ -132,12 +133,7 @@ export function PrivacySettingsScreen() {
         <View style={{ height: 16 }} />
         <View style={styles.switchRow}>
           <Text style={{ color: t.text, fontFamily: FF.regular, flex: 1 }}>Share analytics</Text>
-          <Switch
-            value={analytics}
-            onValueChange={setAnalytics}
-            trackColor={{ false: t.bgSubtle, true: t.brandSoft }}
-            thumbColor={analytics ? t.brand : t.textMuted}
-          />
+          <ThemedSwitch value={analytics} onValueChange={setAnalytics} />
         </View>
         {err ? <Text style={{ color: t.danger, marginTop: 8 }}>{err}</Text> : null}
         <Button onPress={() => void save()} loading={busy} fullWidth style={{ marginTop: 16 }}>
@@ -219,12 +215,7 @@ function BoolRow({
   return (
     <View style={styles.switchRow}>
       <Text style={{ color: t.text, fontFamily: FF.regular, flex: 1 }}>{label}</Text>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: t.bgSubtle, true: t.brandSoft }}
-        thumbColor={value ? t.brand : t.textMuted}
-      />
+      <ThemedSwitch value={value} onValueChange={onChange} />
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import type { MessageDeliveryStatus } from '../services/api';
+import type { ChatMessage, MessageDeliveryStatus } from '../services/api';
 
 const DELIVERED_AFTER_MS = 2500;
 
@@ -19,4 +19,25 @@ export function outgoingDeliveryStatus(
     return 'delivered';
   }
   return 'sent';
+}
+
+/**
+ * Outgoing bubble label: prefer realtime `deliveryStatus` from socket/API, then read receipts,
+ * then time-based heuristic (avoids waiting ~2.5s when `message_delivery` already arrived).
+ */
+export function mineBubbleDeliveryStatus(
+  item: Pick<ChatMessage, 'createdAt' | 'deliveryStatus'>,
+  peerLastReadAtIso: string | null | undefined
+): MessageDeliveryStatus {
+  if (peerLastReadAtIso) {
+    const peer = new Date(peerLastReadAtIso).getTime();
+    const sent = new Date(item.createdAt).getTime();
+    if (!Number.isNaN(peer) && !Number.isNaN(sent) && peer >= sent) {
+      return 'read';
+    }
+  }
+  if (item.deliveryStatus === 'delivered' || item.deliveryStatus === 'read') {
+    return item.deliveryStatus;
+  }
+  return outgoingDeliveryStatus(item.createdAt, peerLastReadAtIso);
 }

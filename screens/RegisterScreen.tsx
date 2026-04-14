@@ -1,6 +1,6 @@
-import { useRoute, type RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { AuthBrandHero } from '../components/auth/AuthBrandHero';
@@ -27,10 +27,17 @@ type RegisterRoute = RouteProp<AuthStackParamList, 'Register'>;
 export function RegisterScreen({ navigation }: Props) {
   const route = useRoute<RegisterRoute>();
   const preferBusiness = route.params?.preferBusiness ?? false;
-  const { signUp } = useAuth();
+  const { signUp, markAuthNavigatedBeyondInitialLogin } = useAuth();
   const { t } = useTheme();
 
-  const [wizardOpen, setWizardOpen] = useState(true);
+  /** Only when this screen is actually shown — avoid pre-mounted Register clearing cold-start login branding. */
+  useFocusEffect(
+    useCallback(() => {
+      markAuthNavigatedBeyondInitialLogin();
+    }, [markAuthNavigatedBeyondInitialLogin])
+  );
+
+  const [wizardOpen, setWizardOpen] = useState(preferBusiness);
   const [step, setStep] = useState(preferBusiness ? 1 : 0);
   const [accountKind, setAccountKind] = useState<'individual' | 'organization'>(preferBusiness ? 'organization' : 'individual');
   const [organizationName, setOrganizationName] = useState('');
@@ -48,6 +55,7 @@ export function RegisterScreen({ navigation }: Props) {
     if (preferBusiness) {
       setAccountKind('organization');
       setStep(1);
+      setWizardOpen(true);
     }
   }, [preferBusiness]);
 

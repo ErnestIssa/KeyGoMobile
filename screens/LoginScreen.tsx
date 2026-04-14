@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
@@ -17,15 +17,30 @@ import { playNotify } from '../services/sounds';
 import { useTheme } from '../theme/ThemeContext';
 import { FF } from '../theme/fonts';
 
+const LOGIN_ENTRY_MARKETING_LINES = [
+  'Moving vehicles. Connecting people.',
+  'Drive trust. Deliver anywhere.',
+  'Seamless relocation. Real-time confidence.',
+];
+
 type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export function LoginScreen({ navigation }: Props) {
-  const { signIn } = useAuth();
-  const { t } = useTheme();
+  const { signIn, allowLoginEntryBranding, ready: authReady } = useAuth();
+  const { t, ready: themeReady } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loginEntryCycleDone, setLoginEntryCycleDone] = useState(false);
+
+  const pageReady = authReady && themeReady;
+  const loginEntryGateDismissed = loginEntryCycleDone && pageReady;
+  const showLoginEntryGate = allowLoginEntryBranding && !loginEntryGateDismissed;
+
+  const onLoginEntryCycleComplete = useCallback(() => {
+    setLoginEntryCycleDone(true);
+  }, []);
 
   const onSubmit = async () => {
     setError(null);
@@ -124,6 +139,16 @@ export function LoginScreen({ navigation }: Props) {
         </View>
       </ScreenContainer>
     </KeyboardAvoidingView>
+    {showLoginEntryGate ? (
+      <View style={[StyleSheet.absoluteFillObject, { zIndex: 9998 }]} pointerEvents="auto">
+        <BrandedLoading
+          fullscreen
+          showMarketingLines
+          marketingLines={LOGIN_ENTRY_MARKETING_LINES}
+          onMarketingCycleComplete={onLoginEntryCycleComplete}
+        />
+      </View>
+    ) : null}
     {loading ? (
       <View style={[StyleSheet.absoluteFillObject, { zIndex: 9999 }]} pointerEvents="auto">
         <BrandedLoading fullscreen minimal />

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -26,6 +27,13 @@ type AuthContextValue = {
   ready: boolean;
   /** Public stats from GET /api/public/bootstrap (splash / marketing). */
   bootstrapStats: { userCount: number; tripCount: number } | null;
+  /**
+   * True only for cold entry to Login (not after sign-out, not after opening Register).
+   * Login uses this to show the full branded gate with marketing lines once.
+   */
+  allowLoginEntryBranding: boolean;
+  /** Call when Register (or any non-Login auth screen) mounts so Login skips entry branding on return. */
+  markAuthNavigatedBeyondInitialLogin: () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (data: RegisterPayload) => Promise<void>;
   signOut: () => Promise<void>;
@@ -41,6 +49,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [bootstrapStats, setBootstrapStats] = useState<{ userCount: number; tripCount: number } | null>(null);
+  /** Bumps when auth presentation flags change so `allowLoginEntryBranding` recomputes. */
+  const [authPresentationRev, setAuthPresentationRev] = useState(0);
+  const entryBrandingAfterSignOutRef = useRef(false);
+  const entryBrandingBeyondLoginRef = useRef(false);
+
+  const markAuthNavigatedBeyondInitialLogin = useCallback(() => {
+    if (entryBrandingBeyondLoginRef.current) return;
+    entryBrandingBeyondLoginRef.current = true;
+    setAuthPresentationRev((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,6 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    entryBrandingAfterSignOutRef.current = true;
+    setAuthPresentationRev((n) => n + 1);
     await apiLogout();
     disconnectSharedChatSocket();
     setToken(null);
@@ -103,12 +123,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(data.user);
   }, []);
 
+  const allowLoginEntryBranding =
+    !entryBrandingAfterSignOutRef.current && !entryBrandingBeyondLoginRef.current;
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       token,
       ready,
       bootstrapStats,
+      allowLoginEntryBranding,
+      markAuthNavigatedBeyondInitialLogin,
       signIn,
       signUp,
       signOut,
@@ -116,7 +141,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateUser,
       switchRole,
     }),
-    [user, token, ready, bootstrapStats, signIn, signUp, signOut, refreshProfile, updateUser, switchRole]
+    [
+      user,
+      token,
+      ready,
+      bootstrapStats,
+      authPresentationRev,
+      allowLoginEntryBranding,
+      markAuthNavigatedBeyondInitialLogin,
+      signIn,
+      signUp,
+      signOut,
+      refreshProfile,
+      updateUser,
+      switchRole,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

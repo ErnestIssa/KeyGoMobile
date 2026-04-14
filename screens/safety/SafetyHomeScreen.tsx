@@ -2,11 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ScreenContainer } from '../../components/ScreenContainer';
 import { BlurModalScrim } from '../../components/ui/BlurModalScrim';
 import { Card } from '../../components/ui/Card';
+import { ThemedSwitch } from '../../components/ui/ThemedSwitch';
 import { useAuth } from '../../context/AuthContext';
 import type { AppSettings } from '../../types/appSettings';
 import type { ProfileStackParamList } from '../../navigation/types';
@@ -130,15 +131,13 @@ export function SafetyHomeScreen() {
       >
         <Ionicons name="information-circle-outline" size={26} color={t.brand} />
       </Pressable>
-      <Switch
+      <ThemedSwitch
         value={value}
         disabled={busy}
         onValueChange={(v) => {
           void hapticSelection();
           onValue(v);
         }}
-        trackColor={{ false: t.bgSubtle, true: t.brandSoft }}
-        thumbColor={value ? t.brand : t.textMuted}
       />
     </View>
   );

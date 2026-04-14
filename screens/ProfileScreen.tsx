@@ -2,14 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
@@ -20,6 +19,7 @@ import { AvatarEditorModal } from '../components/profile/AvatarEditorModal';
 import { RoleModeSection } from '../components/profile/RoleModeSection';
 import { ScreenContainer } from '../components/ScreenContainer';
 import { Button } from '../components/ui/Button';
+import { ThemedSwitch } from '../components/ui/ThemedSwitch';
 import { BlurModalScrim } from '../components/ui/BlurModalScrim';
 import { Card } from '../components/ui/Card';
 import { useAuth } from '../context/AuthContext';
@@ -128,9 +128,6 @@ export function ProfileScreen() {
   const [signOutOpen, setSignOutOpen] = useState(false);
   const [avatarEditorOpen, setAvatarEditorOpen] = useState(false);
   const [roleModalOpen, setRoleModalOpen] = useState(false);
-  /** Bumped once when prefs + theme are hydrated so native Switches remount with correct on-colors (RN quirk). */
-  const [prefSwitchRevision, setPrefSwitchRevision] = useState(0);
-  const prefHydrateOnceRef = useRef(false);
 
   const loadPrefs = useCallback(async () => {
     try {
@@ -173,34 +170,15 @@ export function ProfileScreen() {
 
   const prefsHydrated = prefsReady && themeReady;
 
-  useLayoutEffect(() => {
-    if (!prefsHydrated || prefHydrateOnceRef.current) return;
-    prefHydrateOnceRef.current = true;
-    setPrefSwitchRevision((n) => n + 1);
-  }, [prefsHydrated]);
-
-  const switchTrackColor = useMemo(
-    () => ({ false: t.bgSubtle, true: t.brandSoft }),
-    [t.bgSubtle, t.brandSoft]
-  );
-
-  /**
-   * `prefSwitchRevision` in keys: one remount after storage + theme load so Android/iOS
-   * Switch paints the blue “on” track/thumb. `theme` in key: new tokens after dark-mode toggle.
-   */
-  const row = (label: string, value: boolean, onChange: (v: boolean) => void, switchId: string) => (
+  const row = (label: string, value: boolean, onChange: (v: boolean) => void) => (
     <View style={styles.switchRow}>
       <Text style={[styles.switchLabel, { color: t.text }]}>{label}</Text>
-      <Switch
-        key={`${switchId}-${theme}-r${prefSwitchRevision}`}
+      <ThemedSwitch
         value={value}
         onValueChange={(v) => {
           void hapticSelection();
           onChange(v);
         }}
-        trackColor={switchTrackColor}
-        thumbColor={value ? t.brand : t.textMuted}
-        ios_backgroundColor={t.bgSubtle}
       />
     </View>
   );
@@ -428,27 +406,17 @@ export function ProfileScreen() {
         <Text style={[styles.sectionHead, { color: t.text }]}>Preferences</Text>
         {prefsHydrated ? (
           <>
-            {row('Dark mode', theme === 'dark', (v) => setTheme(v ? 'dark' : 'light'), 'pref-dark')}
+            {row('Dark mode', theme === 'dark', (v) => setTheme(v ? 'dark' : 'light'))}
             <View style={styles.divider} />
-            {row(
-              'Push notifications',
-              pushOn,
-              async (v) => {
-                setPushOn(v);
-                await AsyncStorage.setItem(KEY_PUSH, v ? '1' : '0');
-              },
-              'pref-push'
-            )}
+            {row('Push notifications', pushOn, async (v) => {
+              setPushOn(v);
+              await AsyncStorage.setItem(KEY_PUSH, v ? '1' : '0');
+            })}
             <View style={styles.divider} />
-            {row(
-              'Location sharing',
-              locOn,
-              async (v) => {
-                setLocOn(v);
-                await AsyncStorage.setItem(KEY_LOC, v ? '1' : '0');
-              },
-              'pref-loc'
-            )}
+            {row('Location sharing', locOn, async (v) => {
+              setLocOn(v);
+              await AsyncStorage.setItem(KEY_LOC, v ? '1' : '0');
+            })}
           </>
         ) : (
           <Text style={{ color: t.textMuted }}>Loading preferences…</Text>

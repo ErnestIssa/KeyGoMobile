@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
-  FadeIn,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
@@ -53,6 +52,8 @@ type Props = {
    * Overlays and in-screen loading use the logo only — no copy below.
    */
   showMarketingLines?: boolean;
+  /** When set, these lines rotate instead of the default stats-based copy (e.g. Login cold entry). */
+  marketingLines?: string[];
   /** Logo + rings only — no bouncing dots, no marketing copy (generic loading). */
   minimal?: boolean;
   /**
@@ -83,6 +84,7 @@ export function BrandedLoading({
   fullscreen,
   stats,
   showMarketingLines = false,
+  marketingLines: marketingLinesProp,
   minimal = false,
   onMarketingCycleComplete,
 }: Props) {
@@ -141,7 +143,8 @@ export function BrandedLoading({
     transform: [{ scale: interpolate(breathe.value, [0, 1], [0.88, 1.02]) }],
   }));
 
-  const lines = useMarketingLines(stats ?? null);
+  const defaultLines = useMarketingLines(stats ?? null);
+  const lines = marketingLinesProp?.length ? marketingLinesProp : defaultLines;
   const [lineIndex, setLineIndex] = useState(0);
 
   useEffect(() => {
@@ -188,11 +191,11 @@ export function BrandedLoading({
         </View>
       ) : null}
       {showMarketingLines && !minimal ? (
-        <Animated.View key={lineIndex} entering={FadeIn.duration(420)} style={styles.marketingWrap}>
+        <View key={lineIndex} style={styles.marketingWrap}>
           <Text style={[styles.marketingLine, { color: t.textMuted, fontFamily: FF.regular }]} numberOfLines={3}>
             {lines[lineIndex]}
           </Text>
-        </Animated.View>
+        </View>
       ) : null}
     </View>
   );
