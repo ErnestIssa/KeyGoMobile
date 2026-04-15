@@ -156,6 +156,15 @@ export type TripVehicleLocation = {
   recordedAt: string;
 };
 
+/** Server-driven live map hints — clients render icons from `ownerMarkerKind` / `driverMarkerKind` only. */
+export type TripLiveTracking = {
+  relocationPhase: 'awaiting_handoff' | 'in_transit' | null;
+  ownerLiveLocation?: TripVehicleLocation;
+  driverLiveLocation?: TripVehicleLocation;
+  ownerMarkerKind: 'car' | 'person';
+  driverMarkerKind: 'car' | 'person';
+};
+
 export type Trip = {
   id: string;
   pickupLocation: string;
@@ -172,7 +181,8 @@ export type Trip = {
   owner?: TripParty;
   driver?: TripParty;
   /** From API — only the server decides which actions this user may perform. */
-  allowedActions?: { accept: boolean; complete: boolean };
+  allowedActions?: { accept: boolean; complete: boolean; startRelocation?: boolean };
+  liveTracking?: TripLiveTracking;
 };
 
 /**
@@ -322,6 +332,25 @@ export async function updateTripVehicleLocation(
   return request<{ trip: Trip }>(`/trips/${encodeURIComponent(id)}/vehicle-location`, {
     method: 'PATCH',
     body: JSON.stringify(body),
+  });
+}
+
+/** PATCH /api/trips/:id/live-location — owner (pending/accepted) or driver (accepted); server broadcasts `trip_live_update`. */
+export async function postTripLiveLocation(
+  id: string,
+  body: { latitude: number; longitude: number; heading?: number }
+): Promise<{ trip: Trip }> {
+  return request<{ trip: Trip }>(`/trips/${encodeURIComponent(id)}/live-location`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+/** POST /api/trips/:id/start-relocation — assigned driver only; flips icon semantics to in_transit. */
+export async function startTripRelocation(id: string): Promise<{ trip: Trip }> {
+  return request<{ trip: Trip }>(`/trips/${encodeURIComponent(id)}/start-relocation`, {
+    method: 'POST',
+    body: '{}',
   });
 }
 

@@ -6,9 +6,9 @@ import { useTheme } from '../../theme/ThemeContext';
 type Props = Omit<SwitchProps, 'trackColor' | 'thumbColor' | 'ios_backgroundColor'>;
 
 /**
- * React Native `Switch` often draws the wrong track/thumb on first paint when `value` is true
- * (cold start, navigating to a screen, or switching tabs). Remounting after focus + theme updates
- * keeps the “on” state visibly brand-colored without toggling off/on.
+ * React Native `Switch` often paints the off (white/grey) track/thumb on first layout when `value` is true
+ * (navigation, async prefs, tab focus). Bumping a remount key after focus + when `value` / theme changes
+ * forces the native control to apply `trackColor` / `thumbColor` for the real on state.
  */
 export function ThemedSwitch({ value, onValueChange, disabled, ...rest }: Props) {
   const { theme, t } = useTheme();
@@ -17,12 +17,14 @@ export function ThemedSwitch({ value, onValueChange, disabled, ...rest }: Props)
 
   useLayoutEffect(() => {
     if (!isFocused) return;
-    const id = requestAnimationFrame(() => setPaintKey((k) => k + 1));
+    const id = requestAnimationFrame(() => {
+      setPaintKey((k) => k + 1);
+    });
     return () => cancelAnimationFrame(id);
-  }, [isFocused, theme]);
+  }, [isFocused, theme, value]);
 
-  const trackColor = { false: t.bgSubtle, true: t.brandSoft };
-  const thumbColor = value ? t.brand : t.textMuted;
+  const trackColor = { false: t.bgSubtle, true: t.brand };
+  const thumbColor = value ? '#ffffff' : t.textMuted;
 
   return (
     <Switch

@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSyncGlobalLoading } from '../context/LoadingOverlayContext';
 import { hapticError, hapticMedium, hapticSuccess } from '../services/haptics';
 import { friendlyErrorMessage } from '../lib/userFacingError';
-import { acceptTrip, completeTrip, getTrip, type Trip } from '../services/api';
+import { acceptTrip, completeTrip, getTrip, startTripRelocation, type Trip } from '../services/api';
 import { playNotify, playSuccess } from '../services/sounds';
 import { useTheme } from '../theme/ThemeContext';
 import { FF } from '../theme/fonts';
@@ -65,6 +65,31 @@ export function TripDetailScreen({ route, navigation }: Props) {
           void (async () => {
             try {
               const res = await acceptTrip(id);
+              setTrip(res.trip);
+              await hapticMedium();
+              await hapticSuccess();
+              void playSuccess();
+            } catch (e) {
+              void hapticError();
+              void playNotify();
+              Alert.alert('Something went wrong', friendlyErrorMessage(e));
+            }
+          })();
+        },
+      },
+    ]);
+  };
+
+  const doStartRelocation = () => {
+    Alert.alert('Start relocation', 'Confirm you have the car and are driving — live map icons will switch for you and the owner.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Start',
+        style: 'default',
+        onPress: () => {
+          void (async () => {
+            try {
+              const res = await startTripRelocation(id);
               setTrip(res.trip);
               await hapticMedium();
               await hapticSuccess();
@@ -138,8 +163,13 @@ export function TripDetailScreen({ route, navigation }: Props) {
 
             <View style={{ height: 14 }} />
             {trip.allowedActions?.accept ? <Button onPress={doAccept}>Accept trip</Button> : null}
+            {trip.allowedActions?.startRelocation ? (
+              <Button onPress={doStartRelocation}>Start relocation</Button>
+            ) : null}
             {trip.allowedActions?.complete ? <Button onPress={doComplete}>Mark complete</Button> : null}
-            {!trip.allowedActions?.accept && !trip.allowedActions?.complete ? (
+            {!trip.allowedActions?.accept &&
+            !trip.allowedActions?.complete &&
+            !trip.allowedActions?.startRelocation ? (
               <Button variant="secondary" onPress={() => navigation.goBack()}>
                 Back
               </Button>

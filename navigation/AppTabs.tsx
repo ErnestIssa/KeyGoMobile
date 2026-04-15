@@ -1,11 +1,13 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Easing, View } from 'react-native';
+import { useState } from 'react';
 import { ChatUnreadProvider } from '../context/ChatUnreadContext';
 import { VehicleFleetProvider } from '../context/VehicleFleetContext';
 import { HomeScreen } from '../screens/HomeScreen';
 import { ChatStack } from './ChatStack';
 import { ProfileStack } from './ProfileStack';
 import type { AppTabParamList } from './types';
+import { TabBarVisibilityProvider } from './TabBarVisibilityContext';
 import { WebTabBar } from './WebTabBar';
 import { MyTripsStack } from './MyTripsStack';
 import { ActionStack } from './ActionStack';
@@ -13,13 +15,16 @@ import { ActionStack } from './ActionStack';
 const Tab = createBottomTabNavigator<AppTabParamList>();
 
 export function AppTabs() {
+  const [mainTabBarVisible, setMainTabBarVisible] = useState(true);
+
   return (
     <ChatUnreadProvider>
       <VehicleFleetProvider>
+        <TabBarVisibilityProvider visible={mainTabBarVisible}>
     <Tab.Navigator
       /** Tab bar uses its own `useSafeAreaInsets()` for the pill; don’t double-stack system insets on the bar slot. */
       safeAreaInsets={{ top: 0, right: 0, bottom: 0, left: 0 }}
-      tabBar={(props) => <WebTabBar {...props} />}
+      tabBar={(props) => <WebTabBar {...props} onVisibilityChange={setMainTabBarVisible} />}
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: 'transparent' },
@@ -49,6 +54,7 @@ export function AppTabs() {
       <Tab.Screen name="Chat" component={ChatStack} />
       <Tab.Screen name="Profile" component={ProfileStack} />
     </Tab.Navigator>
+        </TabBarVisibilityProvider>
       </VehicleFleetProvider>
     </ChatUnreadProvider>
   );

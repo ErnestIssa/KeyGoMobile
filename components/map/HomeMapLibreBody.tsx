@@ -7,8 +7,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Camera, MapView, PointAnnotation } from '@maplibre/maplibre-react-native';
 import { IconKeyGoLogo } from '../icons/navIcons';
+import { MapLiveRelocationMarkerView } from './MapLiveRelocationMarker';
 import { MapHomeControls, type MapVisualMode } from './MapHomeControls';
 import { MapVehicleInfoCard } from './MapVehicleInfoCard';
+import type { LiveRelocationMapMarker } from '../../hooks/useTripLiveTracking';
 import type { useVehicleFleet } from '../../hooks/useVehicleFleet';
 import type { UserLngLat } from '../../hooks/useUserLocationWatch';
 import type { MapboxCameraHandle } from '../../lib/map/mapboxCamera';
@@ -26,11 +28,14 @@ type Props = {
   coordinate: UserLngLat | null;
   fleet: FleetBundle;
   brandColor: string;
+  mutedColor: string;
   mapVisualMode: MapVisualMode;
   trafficEnabled: boolean;
   onToggleMapVisualMode: () => void;
   onToggleTraffic: () => void;
   selectedVehicle: import('../../services/api').VehiclePositionRow | null;
+  liveRelocationMarkers: LiveRelocationMapMarker[];
+  hideUserPuck: boolean;
 };
 
 /** Default export enables `React.lazy` in HomeScreen so Expo Go never loads `@maplibre/maplibre-react-native` until the dev build path runs. */
@@ -38,11 +43,14 @@ export default function HomeMapLibreBody({
   coordinate,
   fleet,
   brandColor,
+  mutedColor,
   mapVisualMode,
   trafficEnabled,
   onToggleMapVisualMode,
   onToggleTraffic,
   selectedVehicle,
+  liveRelocationMarkers,
+  hideUserPuck,
 }: Props) {
   const cameraRef = useRef<MapboxCameraHandle | null>(null);
   const didInitialCenter = useRef(false);
@@ -149,7 +157,12 @@ export default function HomeMapLibreBody({
             </View>
           </PointAnnotation>
         ))}
-        {coordinate ? (
+        {liveRelocationMarkers.map((m) => (
+          <PointAnnotation key={m.id} id={`live-reloc-${m.id}`} coordinate={m.lngLat}>
+            <MapLiveRelocationMarkerView marker={m} accentColor={brandColor} mutedColor={mutedColor} />
+          </PointAnnotation>
+        ))}
+        {coordinate && !hideUserPuck ? (
           <PointAnnotation id={TRACKABLE_USER_ID} coordinate={coordinate}>
             <View style={styles.maplibreUserMarker} />
           </PointAnnotation>

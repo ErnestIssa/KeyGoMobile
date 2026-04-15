@@ -10,6 +10,7 @@ export type UserLngLat = [number, number];
  */
 export function useUserLocationWatch(watchOptions: Location.LocationOptions) {
   const [coordinate, setCoordinate] = useState<UserLngLat | null>(null);
+  const [headingDeg, setHeadingDeg] = useState<number | null>(null);
   const [permissionGranted, setPermissionGranted] = useState(false);
 
   useEffect(() => {
@@ -25,6 +26,10 @@ export function useUserLocationWatch(watchOptions: Location.LocationOptions) {
 
       sub = await Location.watchPositionAsync(watchOptions, (loc) => {
         setCoordinate([loc.coords.longitude, loc.coords.latitude]);
+        const h = loc.coords.heading;
+        if (typeof h === 'number' && !Number.isNaN(h) && h >= 0) {
+          setHeadingDeg(h);
+        }
       });
     })();
 
@@ -34,5 +39,5 @@ export function useUserLocationWatch(watchOptions: Location.LocationOptions) {
     };
   }, [watchOptions]);
 
-  return { coordinate, permissionGranted };
+  return { coordinate, headingDeg, permissionGranted };
 }

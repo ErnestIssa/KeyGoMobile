@@ -1,4 +1,5 @@
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsMainTabBarVisible } from './TabBarVisibilityContext';
 
 /** Horizontal inset from screen edges for the floating tab bar pill. */
 export const FLOATING_TAB_BAR_HORIZONTAL_INSET = 12;
@@ -22,6 +23,10 @@ export function useContentTopInset(): number {
  */
 export function useFloatingTabBarBottomInset(): number {
   const insets = useSafeAreaInsets();
+  const tabBarVisible = useIsMainTabBarVisible();
+  if (!tabBarVisible) {
+    return Math.max(insets.bottom, 10) + 14;
+  }
   return FLOATING_TAB_BAR_PILL_HEIGHT + insets.bottom + 12;
 }
 

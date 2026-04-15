@@ -37,7 +37,13 @@ export function addChatConversationRoom(conversationId: string) {
 
 /** --- Central relay: one `socket.on` per event so reconnect / listener churn never drops updates. --- */
 
-export type ChatRelayEvent = 'new_message' | 'message_delivery' | 'messages_read' | 'user_typing' | 'message_updated';
+export type ChatRelayEvent =
+  | 'new_message'
+  | 'message_delivery'
+  | 'messages_read'
+  | 'user_typing'
+  | 'message_updated'
+  | 'trip_live_update';
 
 type RelayHandler = (payload: unknown) => void;
 
@@ -47,6 +53,7 @@ const relayHandlers: Record<ChatRelayEvent, Set<RelayHandler>> = {
   messages_read: new Set(),
   user_typing: new Set(),
   message_updated: new Set(),
+  trip_live_update: new Set(),
 };
 
 function emitRelay(event: ChatRelayEvent, payload: unknown) {
@@ -77,6 +84,7 @@ function bindRelayToSocket(socket: Socket) {
     relayBoundSocket.off('messages_read');
     relayBoundSocket.off('user_typing');
     relayBoundSocket.off('message_updated');
+    relayBoundSocket.off('trip_live_update');
   }
   relayBoundSocket = socket;
   socket.on('new_message', (p) => emitRelay('new_message', p));
@@ -84,6 +92,7 @@ function bindRelayToSocket(socket: Socket) {
   socket.on('messages_read', (p) => emitRelay('messages_read', p));
   socket.on('user_typing', (p) => emitRelay('user_typing', p));
   socket.on('message_updated', (p) => emitRelay('message_updated', p));
+  socket.on('trip_live_update', (p) => emitRelay('trip_live_update', p));
 }
 
 /** Same origin as REST (`EXPO_PUBLIC_API_URL`), Socket.IO path `/socket.io/`. */

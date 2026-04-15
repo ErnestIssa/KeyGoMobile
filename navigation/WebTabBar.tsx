@@ -2,7 +2,7 @@ import {
   BottomTabBarHeightCallbackContext,
   type BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
-import type { NavigationState, PartialState, Route } from '@react-navigation/native';
+import type { NavigationState, PartialState } from '@react-navigation/native';
 import { BlurView } from 'expo-blur';
 import { useContext, useEffect, useRef, type MutableRefObject, type ReactNode } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
@@ -32,6 +32,7 @@ import { hapticSelection } from '../services/haptics';
 import { useTheme } from '../theme/ThemeContext';
 import { FF } from '../theme/fonts';
 import { FLOATING_TAB_BAR_BOTTOM_GAP, FLOATING_TAB_BAR_HORIZONTAL_INSET } from './floatingTabBar';
+import { getNestedFocusedRouteName, shouldHideMainTabBar } from './mainTabBarVisibility';
 import type { AppTabParamList } from './types';
 import type { ThemeTokens } from '../theme/tokens';
 
@@ -45,33 +46,12 @@ const ICON_CENTER_LOGO = 38;
 const STROKE_TAB = 2.35;
 const KEYGO_LOGO_STROKE = 1.6;
 
-type RouteWithOptionalState = Route<string> & {
-  state?: NavigationState | PartialState<NavigationState>;
-};
-
 function routeIndexForName(
   state: NavigationState | PartialState<NavigationState>,
   name: keyof AppTabParamList
 ) {
   const routes = state.routes ?? [];
   return routes.findIndex((r) => r.name === name);
-}
-
-function nestedRouteName(route: Route<string>): string | undefined {
-  const st = (route as RouteWithOptionalState).state;
-  if (!st || st.routes == null || st.index == null) return route.name;
-  const r = st.routes[st.index];
-  return r?.name;
-}
-
-/** Chat thread (composer) — hide the floating tab bar so it doesn’t sit over the input. */
-function isChatThreadOpen(state: BottomTabBarProps['state']): boolean {
-  const chat = state.routes.find((r) => r.name === 'Chat');
-  if (!chat || !('state' in chat) || !chat.state) return false;
-  const inner = chat.state as NavigationState;
-  if (inner.index == null || !inner.routes?.length) return false;
-  const cur = inner.routes[inner.index];
-  return cur?.name === 'ChatThread';
 }
 
 /** Must match AppTabs screen order — used so only one tab is “active” at a time. */
@@ -252,7 +232,11 @@ function CenterActionTab({
 const TAB_HIDE_MS = 420;
 const TAB_HIDE_EASING = Easing.out(Easing.cubic);
 
-export function WebTabBar({ state, navigation }: BottomTabBarProps) {
+type WebTabBarProps = BottomTabBarProps & {
+  onVisibilityChange?: (tabBarVisible: boolean) => void;
+};
+
+export function WebTabBar({ state, navigation, onVisibilityChange }: WebTabBarProps) {
   const { t, theme } = useTheme();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
@@ -278,15 +262,19 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
     opacity: chatIconPulse.value,
   }));
   const onTabBarHeightChange = useContext(BottomTabBarHeightCallbackContext);
-  const chatThreadOpen = isChatThreadOpen(state);
-  const hidePill = useSharedValue(chatThreadOpen ? 1 : 0);
+  const hideTabBar = shouldHideMainTabBar(state, isOwner);
+  const hidePill = useSharedValue(hideTabBar ? 1 : 0);
 
   useEffect(() => {
-    hidePill.value = withTiming(chatThreadOpen ? 1 : 0, {
+    onVisibilityChange?.(!hideTabBar);
+  }, [hideTabBar, onVisibilityChange]);
+
+  useEffect(() => {
+    hidePill.value = withTiming(hideTabBar ? 1 : 0, {
       duration: TAB_HIDE_MS,
       easing: TAB_HIDE_EASING,
     });
-  }, [chatThreadOpen, hidePill]);
+  }, [hideTabBar, hidePill]);
 
   const pillAnim = useAnimatedStyle(() => ({
     opacity: interpolate(hidePill.value, [0, 1], [1, 0]),
@@ -295,7 +283,7 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
 
   const idxAction = routeIndexForName(state, 'Action');
   const actionRoute = idxAction >= 0 ? state.routes[idxAction] : undefined;
-  const actionNested = actionRoute ? nestedRouteName(actionRoute) : undefined;
+  const actionNested = actionRoute ? getNestedFocusedRouteName(actionRoute) : undefined;
 
   const idx = state.index;
   const homeActive = idx === TAB_HOME;
@@ -408,7 +396,7 @@ export function WebTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View
-      pointerEvents={chatThreadOpen ? 'none' : 'box-none'}
+      pointerEvents={hideTabBar ? 'none' : 'box-none'}
       onLayout={onLayout}
       style={[
         styles.floatOuter,

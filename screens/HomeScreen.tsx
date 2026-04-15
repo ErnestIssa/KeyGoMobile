@@ -19,8 +19,10 @@ import {
 import { ActivityIndicator, NativeModules, StyleSheet, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { IconKeyGoLogo } from '../components/icons/navIcons';
+import { MapLiveRelocationMarkerView } from '../components/map/MapLiveRelocationMarker';
 import { MapHomeControls, type MapVisualMode } from '../components/map/MapHomeControls';
 import { MapVehicleInfoCard } from '../components/map/MapVehicleInfoCard';
+import { useTripLiveTracking } from '../hooks/useTripLiveTracking';
 import { useVehicleFleet } from '../hooks/useVehicleFleet';
 import { useUserLocationWatch, type UserLngLat } from '../hooks/useUserLocationWatch';
 import type { MapboxCameraHandle } from '../lib/map/mapboxCamera';
@@ -58,6 +60,7 @@ export function HomeScreen() {
   );
   const location = useUserLocationWatch(locationWatchOptions);
   const fleet = useVehicleFleet();
+  const liveTrip = useTripLiveTracking(location.coordinate, location.headingDeg);
 
   const [mapVisualMode, setMapVisualMode] = useState<MapVisualMode>(() =>
     theme === 'dark' ? 'night' : 'day'
@@ -92,11 +95,14 @@ export function HomeScreen() {
           coordinate={location.coordinate}
           fleet={fleet}
           brandColor={t.brand}
+          mutedColor={t.textMuted}
           mapVisualMode={mapVisualMode}
           trafficEnabled={trafficEnabled}
           onToggleMapVisualMode={toggleMapVisualMode}
           onToggleTraffic={() => setTrafficEnabled((x) => !x)}
           selectedVehicle={selectedVehicle}
+          liveRelocationMarkers={liveTrip.markers}
+          hideUserPuck={liveTrip.hideUserPuck}
         />
       </Suspense>
     );
@@ -113,6 +119,8 @@ export function HomeScreen() {
         onToggleMapVisualMode={toggleMapVisualMode}
         onToggleTraffic={() => setTrafficEnabled((x) => !x)}
         selectedVehicle={selectedVehicle}
+        liveRelocationMarkers={liveTrip.markers}
+        hideUserPuck={liveTrip.hideUserPuck}
         t={t}
       />
     );
@@ -123,11 +131,14 @@ export function HomeScreen() {
       coordinate={location.coordinate}
       fleet={fleet}
       brandColor={t.brand}
+      mutedColor={t.textMuted}
       mapVisualMode={mapVisualMode}
       trafficEnabled={trafficEnabled}
       onToggleMapVisualMode={toggleMapVisualMode}
       onToggleTraffic={() => setTrafficEnabled((x) => !x)}
       selectedVehicle={selectedVehicle}
+      liveRelocationMarkers={liveTrip.markers}
+      hideUserPuck={liveTrip.hideUserPuck}
     />
   );
 }
@@ -143,6 +154,8 @@ function ExpoGoHomeBody({
   onToggleMapVisualMode,
   onToggleTraffic,
   selectedVehicle,
+  liveRelocationMarkers,
+  hideUserPuck,
   t,
 }: {
   coordinate: UserLngLat | null;
@@ -153,6 +166,8 @@ function ExpoGoHomeBody({
   onToggleMapVisualMode: () => void;
   onToggleTraffic: () => void;
   selectedVehicle: import('../services/api').VehiclePositionRow | null;
+  liveRelocationMarkers: import('../hooks/useTripLiveTracking').LiveRelocationMapMarker[];
+  hideUserPuck: boolean;
   t: ReturnType<typeof useTheme>['t'];
 }) {
   const mapRef = useRef<MapView | null>(null);
@@ -236,7 +251,18 @@ function ExpoGoHomeBody({
             </View>
           </Marker>
         ))}
-        {permissionGranted && coordinate ? (
+        {liveRelocationMarkers.map((m) => (
+          <Marker
+            key={m.id}
+            coordinate={{ latitude: m.lngLat[1], longitude: m.lngLat[0] }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+            zIndex={1001}
+          >
+            <MapLiveRelocationMarkerView marker={m} accentColor={t.brand} mutedColor={t.textMuted} />
+          </Marker>
+        ))}
+        {permissionGranted && coordinate && !hideUserPuck ? (
           <Marker
             coordinate={{ latitude: coordinate[1], longitude: coordinate[0] }}
             anchor={{ x: 0.5, y: 0.5 }}
@@ -268,20 +294,26 @@ function HomeMapboxBody({
   coordinate,
   fleet,
   brandColor,
+  mutedColor,
   mapVisualMode,
   trafficEnabled,
   onToggleMapVisualMode,
   onToggleTraffic,
   selectedVehicle,
+  liveRelocationMarkers,
+  hideUserPuck,
 }: {
   coordinate: UserLngLat | null;
   fleet: FleetBundle;
   brandColor: string;
+  mutedColor: string;
   mapVisualMode: MapVisualMode;
   trafficEnabled: boolean;
   onToggleMapVisualMode: () => void;
   onToggleTraffic: () => void;
   selectedVehicle: import('../services/api').VehiclePositionRow | null;
+  liveRelocationMarkers: import('../hooks/useTripLiveTracking').LiveRelocationMapMarker[];
+  hideUserPuck: boolean;
 }) {
   const Mapbox = useMemo(
     () => require('@rnmapbox/maps') as typeof import('@rnmapbox/maps'),
@@ -408,7 +440,12 @@ function HomeMapboxBody({
             </View>
           </Mapbox.PointAnnotation>
         ))}
-        {coordinate ? (
+        {liveRelocationMarkers.map((m) => (
+          <Mapbox.PointAnnotation key={m.id} id={`live-${m.id}`} coordinate={m.lngLat}>
+            <MapLiveRelocationMarkerView marker={m} accentColor={brandColor} mutedColor={mutedColor} />
+          </Mapbox.PointAnnotation>
+        ))}
+        {coordinate && !hideUserPuck ? (
           <Mapbox.PointAnnotation id={TRACKABLE_USER_ID} coordinate={coordinate}>
             <View style={styles.mapboxUserMarker} />
           </Mapbox.PointAnnotation>
